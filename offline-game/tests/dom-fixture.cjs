@@ -77,7 +77,7 @@ function parse(html, parent, doc) {
     } else stack[stack.length - 1]._text += decode(token);
   }
 }
-function createEnvironment({ saved = new Map(), failStorage = false, AudioContext, fetch } = {}) {
+function createEnvironment({ saved = new Map(), failStorage = false, AudioContext, fetch, location } = {}) {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8'), doc = { listeners: {}, downloads: [], urls: new Map(), activeElement: null };
   doc.root = new Element('document', {}, doc);
   parse(html.replace(/<script>[\s\S]*?<\/script>/g, '').replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<!doctype[^>]*>/i, ''), doc.root, doc);
@@ -86,7 +86,7 @@ function createEnvironment({ saved = new Map(), failStorage = false, AudioContex
   doc.querySelector = s => doc.root.querySelector(s); doc.querySelectorAll = s => doc.root.querySelectorAll(s);
   doc.createElement = tag => new Element(tag, {}, doc); doc.addEventListener = (t, f) => (doc.listeners[t] ||= []).push(f);
   const timers = new Map(), intervals = new Map(); let timerId = 0;
-  const win = { innerHeight: 900, listeners: {}, addEventListener(t, f) { (this.listeners[t] ||= []).push(f); } };
+  const win = { innerHeight: 900, location, listeners: {}, addEventListener(t, f) { (this.listeners[t] ||= []).push(f); } };
   const sandbox = { console, document: doc, window: win, fetch, Blob, URL: { createObjectURL(blob) { const id = 'blob:fixture/' + (++timerId); doc.urls.set(id, blob); return id; }, revokeObjectURL(id) { doc.urls.delete(id); } }, localStorage: { getItem(k) { if (failStorage) throw Error('Blocked storage'); return saved.get(k) || null; }, setItem(k, v) { if (failStorage) throw Error('Blocked storage'); saved.set(k, v); } }, setTimeout(f) { const id = ++timerId; timers.set(id, f); return id; }, clearTimeout(id) { timers.delete(id); }, setInterval(f) { const id = ++timerId; intervals.set(id, f); return id; }, clearInterval(id) { intervals.delete(id); }, requestAnimationFrame: f => f() };
   win.setInterval = sandbox.setInterval; win.clearInterval = sandbox.clearInterval; win.AudioContext = AudioContext;
   vm.createContext(sandbox);

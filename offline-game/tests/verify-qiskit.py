@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cross-check the Qiskit runner against the game's JS simulator.
+"""Cross-check the Quantum Foundry service's Qiskit engine against the game's JS simulator.
 
 Optional developer check: requires Qiskit and Node. Random circuits over the
 game's full gate set (X, H, Z, CX, SWAP) on 1-6 qubits are simulated by both
@@ -11,9 +11,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "qiskit"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np  # noqa: E402
-from runner import simulate  # noqa: E402
+from backend.circuit import validate_payload  # noqa: E402
+from backend.quantum import simulate  # noqa: E402
 
 rng = np.random.default_rng(20261011)
 fixtures = []
@@ -44,7 +45,8 @@ locals_ = json.loads(result.stdout)
 
 worst = 0.0
 for fixture, local in zip(fixtures, locals_):
-    reply = simulate({**fixture, "shots": 128})
+    reply = simulate(validate_payload({"qubits": fixture["n"], "operations": fixture["gates"],
+                                       "initial": {"basis": fixture["initial"]}, "shots": 128}))
     qiskit_amplitudes = np.array([complex(r, i) for r, i in reply["amplitudes"]])
     local_amplitudes = np.array([complex(r, i) for r, i in local])
     worst = max(worst, float(np.max(np.abs(qiskit_amplitudes - local_amplitudes))))
@@ -53,4 +55,4 @@ for fixture, local in zip(fixtures, locals_):
     assert abs(sum(reply["probabilities"]) - 1) < 1e-9
 
 assert worst < 1e-10, worst
-print("qiskit runner vs local simulator: %d circuits, max |amplitude delta| = %.3g — OK" % (len(fixtures), worst))
+print("Qiskit service vs local simulator: %d circuits, max |amplitude delta| = %.3g — OK" % (len(fixtures), worst))

@@ -118,12 +118,18 @@ backend/                main.py (FastAPI + Qiskit), test_quantum.py, make_refere
 
 MIT licensed. See `LICENSE`.
 
-## Offline game build
+## Offline game build (the current game)
 
-A self-contained, double-clickable build of the game lives in [`offline-game/`](offline-game/):
-open `offline-game/index.html` in Safari or Chrome — no server or install needed. It includes ten
-unchanged Kevin MacLeod tracks (CC BY 4.0, see `offline-game/assets/music/CREDITS.md`), a required
-beginner gate guide, and the original five-page primer and dictionary. Optional services include
-the auto-detected Qiskit simulator (`offline-game/qiskit/runner.py`) and a local IonQ QPU bridge
-(`offline-game/backend/`); real IonQ jobs require a server-side API key and may use paid credits.
-See its README and test report for setup and verification details.
+[`offline-game/`](offline-game/) is the expanded, current version of Quantum Foundry. It has 16 missions in two chapters, a teaching layer built from zero, a Sandbox with up to six qubits, and music (ten Kevin MacLeod tracks, CC BY 4.0, see `offline-game/assets/music/CREDITS.md`). Open `offline-game/index.html` in Safari or Chrome to play; no server or install is needed.
+
+It uses this repository's **Qiskit grading** through one optional local service. It also adds **IonQ** runs on the cloud simulator, IonQ device noise models, or trapped-ion QPUs:
+
+```bash
+cd offline-game && ./start-service.sh      # then open http://127.0.0.1:8000
+```
+
+- **Check circuit:** Qiskit regrades every Check (`Statevector` fidelity per case, `Operator.equiv` per operation), and progress is awarded only when Qiskit agrees.
+- **Sample output** is measured by Qiskit, and **Export OpenQASM** is written by Qiskit.
+- **IonQ:** set `IONQ_API_KEY` for IonQ simulator runs; add `IONQ_ENABLE_QPU=1` for paid hardware. Paid runs show IonQ's cost estimate and require confirmation.
+
+See [`offline-game/README.md`](offline-game/README.md), [`offline-game/backend/README.md`](offline-game/backend/README.md), and the [test report](offline-game/TEST_REPORT.md).

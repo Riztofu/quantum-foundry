@@ -55,3 +55,19 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
 .music-credit-list a{color:#b8d7b5}
 .qpu-counts{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:5px;padding-left:20px}
 @media(max-width:700px){.gate-guide>div{grid-template-columns:1fr;gap:5px}.gate-guide{padding:10px}}
+/* Qiskit grading and IonQ runs */
+.grader-note{margin:0 0 8px;font-size:10px;color:var(--muted)}.grader-note.qiskit{color:var(--cyan)}
+.ionq-open{margin-top:6px;font-size:10px;color:var(--cyan)}
+.ionq-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:12px 0}.ionq-form label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)}
+.ionq-form select{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:4px;padding:6px}
+.ionq-check{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;font-size:11px;color:var(--text)}
+.ionq-paid{margin:10px 0;color:var(--orange)}
+.ionq-estimate{padding:10px 12px;border:1px solid var(--line);border-radius:4px;background:var(--panel2);font-size:11px;line-height:1.5}
+.ionq-status{font-weight:600;color:var(--orange)}.ionq-status.done{color:var(--green)}.ionq-status.failed,.ionq-status.cancelled{color:var(--red)}
+.ionq-legend{display:flex;gap:16px;font-size:10px;color:var(--muted);margin:6px 0}.ionq-legend span::before{content:'';display:inline-block;width:10px;height:8px;margin-right:5px;vertical-align:middle}
+.ionq-legend .ideal::before,.ionq-bars .ideal{background:#5d7f88}.ionq-legend .device::before,.ionq-bars .device{background:var(--orange)}
+.ionq-case{margin:10px 0 14px}.ionq-case h4{margin:0 0 6px;font-size:12px}.ionq-case h4 span{font-weight:400;color:var(--muted);margin-left:6px}
+.ionq-row{display:grid;grid-template-columns:70px minmax(80px,1fr) 100px;gap:8px;align-items:center;font-family:ui-monospace,monospace;font-size:10px;margin-bottom:3px}
+.ionq-bars{display:flex;flex-direction:column;gap:2px}.ionq-bars div{height:5px;min-width:1px}
+.modal .ionq-check{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;grid-column:1/-1;margin:0}.modal .ionq-check input{width:auto;flex:0 0 auto;margin:0;padding:0}
+.modal .ionq-paid{margin:12px 0 0}

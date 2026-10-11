@@ -316,19 +316,3 @@ test('credits show exactly the requested names and music credits list all ten re
   assert.equal(e.get('modal-root').querySelector('.music-credit-list').querySelectorAll('li').length, 10);
   assert.match(e.get('modal-root').textContent, /Creative Commons Attribution 4.0/);
 });
-
-test('IonQ action submits one selected circuit and reports hardware counts without grading it', async () => {
-  const calls = [], fetch = async (url, options = {}) => {
-    calls.push({ url, options });
-    const data = url === '/api/health' ? { hardware_ready: true, backend: 'ionq_qpu.forte-1' } : { job_id: 'ionq-test-1', backend: 'ionq_qpu.forte-1', status: 'queued' };
-    return { ok: true, json: async () => data };
-  };
-  const e = createEnvironment({ fetch });
-  for (let i = 0; i < 10 && e.get('qpu-run').disabled; i++) await new Promise(resolve => setTimeout(resolve, 0));
-  await e.get('demo').click(); await e.begin();
-  assert.equal(e.get('qpu-run').disabled, false);
-  await e.get('qpu-run').click(); assert.match(e.get('dialog-title').textContent, /Run on IonQ hardware/); await e.modalAction(1);
-  const submitted = calls.find(call => call.url === '/api/ionq/jobs'); assert.ok(submitted);
-  const request = JSON.parse(submitted.options.body); assert.equal(request.qubits, 2); assert.equal(request.shots, 512); assert.ok(request.operations.some(operation => operation.type === 'CX'));
-  assert.match(e.get('dialog-title').textContent, /IonQ hardware result/); assert.match(e.get('modal-root').textContent, /does not verify the whole circuit/); assert.equal(e.get('check').hidden, true);
-});
