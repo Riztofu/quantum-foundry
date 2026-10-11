@@ -44,6 +44,11 @@ export function createHost(bridge, backend) {
 
   return {
     name: 'qollab',
+    // Exports and saves: Qollab's sendFile shows the file in its console with download / copy buttons.
+    async saveFile(name, mime, text) {
+      try { await call('send_file', JSON.stringify({ name, mime, text })); }
+      catch (error) { if (typeof globalThis.sendFile === 'function') await globalThis.sendFile(name, mime, text); else throw error; }
+    },
     async request(path, body) {
       if (path === '/api/health') return health();
       if (path === '/api/verify') return call('verify', JSON.stringify(body));

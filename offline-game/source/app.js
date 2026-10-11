@@ -616,7 +616,7 @@
   }
   function ionqRestart() {
     modal('Save, then start a new Run', `<p>Qollab sends <b>one IonQ job per Run</b>, and this Run has already used it. To send another:</p><ol class="experiment-steps"><li><b>Save your progress.</b> Qollab keeps nothing once the Run stops.</li><li>Press <b>Stop</b>, then <b>Run</b> again and choose an IonQ simulator in Select QPU.</li><li>On the map, press <b>Import save</b> and pick the file to continue where you left off.</li></ol><p id="restart-saved" class="tiny" aria-live="polite"></p>`, [
-      { label: '💾 Save progress', primary: true, run: () => { backup(); if ($('restart-saved')) $('restart-saved').textContent = 'Saved Quantum-Foundry-Backup.json. If the download was blocked, copy the backup from the Qollab console below. Now press Stop, then Run.'; } },
+      { label: '💾 Save progress', primary: true, run: () => { backup(); if ($('restart-saved')) $('restart-saved').textContent = host ? 'Your save is in the Qollab console below: use its download (or copy) button, then press Stop, then Run.' : 'Saved Quantum-Foundry-Backup.json. Now press Stop, then Run.'; } },
       ...(ionqJob ? [{ label: 'View last job', run: () => showIonqJob(ionqJob) }] : []),
       { label: 'Close', run: closeModal }
     ]);
@@ -782,7 +782,39 @@
     modal(m.name + ' · inside the block', `<p>${esc(m.kind)} · ${m.qubits} qubits · ${m.gates.length} primitive gates · version ${m.version}. ${m.kind === 'BellPrep' ? 'Preparation contract assumes input |00⟩.' : 'The stored gate sequence preserves the original input/output mapping.'}</p>${schematic}<div class="gate-list">${m.gates.map((g, i) => `${i + 1}. ${g.type === 'CX' ? 'CNOT q' + g.control + ' → q' + g.target : g.type + ' q' + g.target}`).join('<br>') || 'Direct quantum connections (identity)'}</div>`, actions, true);
   }
   function download(name, text, mime) {
-    if (host) console.log('──── ' + name + ' (copy from here if the download is blocked) ────\n' + text); const url = URL.createObjectURL(new Blob([text], { type: mime })); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000); }
+    // Qollab's sandboxed page blocks browser downloads: hand the file to Qollab's console (sendFile) instead.
+    if (host?.saveFile) {
+      console.log('──── ' + name + ' ────\n' + text);
+      host.saveFile(name, mime, text).then(() => notify(name + ' is in the Qollab console below — use its download or copy button.'), () => textFallback(name, text));
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([text], { type: mime })); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
+  function textFallback(name, text) {
+    modal('Copy ' + name, `<p>This page cannot save files here. Select all the text below, copy it, and save it as <b>${esc(name)}</b>.</p><textarea id="export-text" class="export-text" readonly spellcheck="false">${esc(text)}</textarea>`, [{ label: 'Select all', run: () => { $('export-text').focus(); $('export-text').select(); } }, { label: 'Done', primary: true, run: closeModal }], true);
+  }
+  function importText(text) {
+    try {
+      if (text.length > 8 * 1024 * 1024) throw Error('Project backups must be smaller than 8 MB.');
+      const imported = validateProject(JSON.parse(text));
+      modal('Import project backup?', '<p>This replaces the progress, circuits, and components in this browser. Download a Backup of your current work first if needed.</p>', [{ label: 'Cancel', run: closeModal }, { label: 'Import project', primary: true, run: () => {
+        closeModal(); pause(); project = imported;
+        // Do not persist the previous workbench over the newly imported project.
+        level = levelFor(project.current, project); graph = C.clone(project.circuits[level.id] || C.starter(level.id, level.qubits)); camera = C.clone(project.cameras[level.id] || { x: 0, y: 0, zoom: 1 });
+        selected = null; placement = null; pendingWire = null; undo = []; redo = []; attempted = false; caseIndex = project.inputs[level.id] || 0; stepIndex = 0; result = null; counts = null; activeTab = 'tests';
+        audio.setEnabled(project.settings.music); audio.setVolume(project.settings.volume); audio.setTrack(project.settings.track); renderAudio();
+        document.documentElement.style.setProperty('--dock', project.settings.dock + 'px'); compute(); render(); persist(); openMap(); notify('Project imported. Your components and progress are ready.');
+      } }]);
+    } catch (error) { notify('Import could not be read: ' + error.message); }
+  }
+  function importSave() {
+    if (!host) { $('import-file').click(); return; }
+    modal('Import save', '<p>Choose your saved <b>Quantum-Foundry-Backup.json</b>, or open it in a text editor, copy everything, and paste it here.</p><textarea id="import-text" class="export-text" spellcheck="false" placeholder="Paste the save text here"></textarea>', [
+      { label: 'Choose file…', run: () => $('import-file').click() },
+      { label: 'Cancel', run: closeModal },
+      { label: 'Import pasted save', primary: true, run: () => { const text = $('import-text').value.trim(); if (!text) { notify('Paste the save text first, or choose the file.'); return; } importText(text); } }
+    ]);
+  }
   function backup() { persist(); download('Quantum-Foundry-Backup.json', JSON.stringify(project, null, 2), 'application/json'); notify('Backup downloaded: circuits, progress, and saved components.'); }
   function exportPython() { if (!readyToRun()) return; download('quantum_foundry_' + level.id + '.py', C.qiskit(compiled, level.qubits, typeof source().initial === 'number' ? source().initial : source().basisInput || 0, source().message, level.id), 'text/x-python'); notify('Qiskit Python exported. Its shebang is included; install Qiskit separately to run it.'); }
   function hint() { const hints = L[level.id].hints, index = Math.min(project.hints[level.id] || 0, hints.length - 1); project.hints[level.id] = index + 1; persist(); modal('Hint ' + (index + 1) + ' / ' + hints.length, `<p>${esc(hints[index])}</p>`, [{ label: 'Back to circuit', primary: true, run: closeModal }]); }
@@ -904,24 +936,14 @@
   $('primer-button').classList.toggle('pulse', !project.seenPrimer);
   $('glossary-button').onclick = () => { setMenu(false); glossaryModal(); };
   $('save-component').onclick = saveComponentDialog;
-  $('backup').onclick = backup; $('import').onclick = () => $('import-file').click();
-  $('map-save').onclick = backup; $('map-import').onclick = () => $('import-file').click(); $('export').onclick = exportPython;
+  $('backup').onclick = backup; $('import').onclick = importSave;
+  $('map-save').onclick = backup; $('map-import').onclick = importSave; $('export').onclick = exportPython;
   $('reset-circuit').onclick = () => modal('Reset this schematic?', '<p>Clear your placed parts and wires for this assignment. Saved components and earned campaign progress stay available. Undo restores the circuit after a reset.</p>', [{ label: 'Cancel', run: closeModal }, { label: 'Reset circuit', primary: true, run: () => { closeModal(); selected = null; placement = null; commit(C.starter(level.id, level.qubits), 'Assignment reset. Undo can restore your circuit.'); fit(); } }]);
   $('toggle-parts').onclick = () => { project.settings.partsCollapsed = !project.settings.partsCollapsed; $('app').classList.toggle('parts-collapsed', project.settings.partsCollapsed); $('toggle-parts').setAttribute('aria-expanded', String(!project.settings.partsCollapsed)); persist(); requestAnimationFrame(fit); };
   $('import-file').onchange = async e => {
     const file = e.target.files[0]; e.target.value = ''; if (!file) return;
-    try {
-      if (file.size > 8 * 1024 * 1024) throw Error('Project backups must be smaller than 8 MB.');
-      const imported = validateProject(JSON.parse(await file.text()));
-      modal('Import project backup?', '<p>This replaces the progress, circuits, and components in this browser. Download a Backup of your current work first if needed.</p>', [{ label: 'Cancel', run: closeModal }, { label: 'Import project', primary: true, run: () => {
-        closeModal(); pause(); project = imported;
-        // Do not persist the previous workbench over the newly imported project.
-        level = levelFor(project.current, project); graph = C.clone(project.circuits[level.id] || C.starter(level.id, level.qubits)); camera = C.clone(project.cameras[level.id] || { x: 0, y: 0, zoom: 1 });
-        selected = null; placement = null; pendingWire = null; undo = []; redo = []; attempted = false; caseIndex = project.inputs[level.id] || 0; stepIndex = 0; result = null; counts = null; activeTab = 'tests';
-        audio.setEnabled(project.settings.music); audio.setVolume(project.settings.volume); audio.setTrack(project.settings.track); renderAudio();
-        document.documentElement.style.setProperty('--dock', project.settings.dock + 'px'); compute(); render(); persist(); openMap(); notify('Project imported. Your components and progress are ready.');
-      } }]);
-    } catch (error) { notify('Import could not be read: ' + error.message); }
+    if (file.size > 8 * 1024 * 1024) { notify('Import could not be read: Project backups must be smaller than 8 MB.'); return; }
+    importText(await file.text());
   };
   const resizer = $('dock-resizer'); let dockDrag = null;
   const maxDockHeight = () => Math.max(130, Math.min(420, window.innerHeight / 2, document.querySelector('.workspace').getBoundingClientRect().height - 220));

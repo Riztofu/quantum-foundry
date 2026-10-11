@@ -104,3 +104,23 @@ class QollabBridgeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class QollabSendFileTests(unittest.TestCase):
+    def test_send_file_hands_exports_to_qollab_console(self):
+        sent = []
+        fake_js = types.ModuleType("js")
+        fake_js.sendFile = lambda name, mime, text: sent.append((name, mime, text))
+        sys.modules["js"] = fake_js
+        try:
+            out = call(bridge.send_file, json.dumps({"name": "Quantum-Foundry-Backup.json", "mime": "application/json", "text": "{}"}))
+        finally:
+            del sys.modules["js"]
+        self.assertTrue(out["ok"], out)
+        self.assertEqual(sent, [("Quantum-Foundry-Backup.json", "application/json", "{}")])
+
+    def test_send_file_without_qollab_reports_an_error_instead_of_crashing(self):
+        sys.modules.pop("js", None)
+        out = call(bridge.send_file, json.dumps({"name": "a.qasm", "mime": "text/plain", "text": "x"}))
+        self.assertFalse(out["ok"])
+        self.assertEqual(call(bridge.send_file, json.dumps({"name": 3}))["status"], 422)

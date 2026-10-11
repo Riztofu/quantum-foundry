@@ -173,3 +173,33 @@ test('the main menu has Save and Import save buttons', async () => {
   let opened = false; e.get('import-file').addEventListener('click', () => { opened = true; });
   await e.get('map-import').click(); assert.equal(opened, true);
 });
+
+test('on Qollab, saves and exports go to the console via sendFile, with a copy box if that fails', async () => {
+  const service = fakeService(), files = [];
+  let failSave = false;
+  const host = {
+    request: async (path, body) => { const r = await service.fetch(path, body ? { method: 'POST', body: JSON.stringify(body) } : {}); return r.json(); },
+    saveFile: async (name, mime, text) => { if (failSave) throw Error('no sendFile'); files.push({ name, mime, text }); }
+  };
+  const e = createEnvironment(); await e.win.quantumFoundry.attachHost(host); await settle();
+  await e.get('map-save').click(); await settle();
+  assert.equal(files.at(-1).name, 'Quantum-Foundry-Backup.json'); assert.equal(JSON.parse(files.at(-1).text).format, 'quantum-foundry-project');
+  assert.equal(e.doc.downloads.length, 0, 'no blocked browser download is attempted');
+  assert.match(e.get('status-text').textContent, /Qollab console/);
+  await e.open('link'); await e.wire('in0', 'out0'); await e.get('export').click(); await settle();
+  assert.equal(files.at(-1).name, 'quantum_foundry_link.py'); assert.match(files.at(-1).text, /QuantumCircuit/);
+  failSave = true; await e.get('export').click(); await settle();
+  assert.match(e.get('dialog-title').textContent, /Copy quantum_foundry_link\.py/); assert.match(e.get('export-text').textContent, /QuantumCircuit/);
+});
+
+test('on Qollab, Import save accepts a pasted save', async () => {
+  const service = fakeService();
+  const host = { request: async (path, body) => (await service.fetch(path, body ? { method: 'POST', body: JSON.stringify(body) } : {})).json(), saveFile: async () => {} };
+  const source = createEnvironment(); await source.open('link'); await source.wire('in0', 'out0'); await source.get('check').click();
+  const save = JSON.stringify(source.win.quantumFoundry.getProject());
+  const e = createEnvironment(); await e.win.quantumFoundry.attachHost(host); await settle();
+  await e.get('map-import').click(); assert.match(e.get('dialog-title').textContent, /Import save/);
+  e.get('import-text').value = save; await e.modalAction(2);
+  assert.match(e.get('dialog-title').textContent, /Import project backup/); await e.modalAction(1);
+  assert.equal(e.win.quantumFoundry.getProject().progress.link, true);
+});

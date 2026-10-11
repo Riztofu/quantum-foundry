@@ -149,3 +149,17 @@ def _run(backend, data):
 def run_on_backend(backend, payload_json):
     """One job on the Qollab-selected backend holding every requested input."""
     return _respond(lambda data: _run(backend, data), payload_json)
+
+
+def _send_file(data):
+    if not isinstance(data, dict) or not all(isinstance(data.get(k), str) for k in ("name", "mime", "text")):
+        raise ValueError("A file needs a name, a type, and text.")
+    from js import sendFile  # Qollab's console file hand-off: download / copy buttons
+
+    sendFile(data["name"][:120], data["mime"][:80], data["text"])
+    return {"sent": data["name"]}
+
+
+def send_file(payload_json):
+    """Put an export or save file in the Qollab console (the sandboxed page cannot download)."""
+    return _respond(_send_file, payload_json)
