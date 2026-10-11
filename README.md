@@ -117,3 +117,11 @@ backend/                main.py (FastAPI + Qiskit), test_quantum.py, make_refere
 ```
 
 MIT licensed. See `LICENSE`.
+
+## Offline game build
+
+A self-contained, double-clickable build of the game lives in [`offline-game/`](offline-game/):
+open `offline-game/index.html` in Safari or Chrome — no server or install needed. It adds a
+Kevin MacLeod soundtrack (fetch once with `offline-game/music/get-soundtrack.command`; CC BY 4.0,
+see `offline-game/CREDITS.md`) and a live Qiskit runner (`offline-game/qiskit/runner.py`) that the
+game auto-detects and labels honestly. Its own README has the details; 69 automated tests included.
