@@ -1,135 +1,58 @@
 # Quantum Foundry
 
-A quantum circuit construction game. You are an apprentice reconstructing a small
-quantum machine: place parts, connect pins, inspect the joint quantum state, pass
-the mission's tests, package your verified circuit as a reusable component, and
-build a larger system from it — ending with a working superdense-coding
-"Quantum Courier" assembled from components you built and verified yourself.
+A quantum circuit construction game. You are an apprentice rebuilding a small quantum machine. You place parts, connect pins, inspect the joint quantum state, and pass each mission's tests. Then you package your verified circuit as a reusable component and build larger systems from it. The campaign grows from a single wire through superdense coding, routing, and entanglement to the Deutsch and Bernstein–Vazirani algorithms. You can also run your circuits on IonQ quantum computers.
 
-Built for the Qollab × IonQ hackathon (Quantum Unlocked track), spatial-layout and
-progression inspired by Turing Complete. All names, text, and assets are original.
+Built for the Qollab × IonQ hackathon (Quantum Unlocked track). The spatial layout and progression are inspired by Turing Complete. All names, text, and assets are original, except the CC BY 4.0 music credited in `offline-game/assets/music/CREDITS.md`.
 
-## The campaign (8 assignments)
+## Play
 
-1. **First Connection** — carry a qubit from input to readout; wiring *is* the circuit.
-2. **The Inverter** — build and verify X, save your first component.
-3. **Two Possibilities** — prepare (|0⟩+|1⟩)/√2; probability = amplitude², signs are real.
-4. **The Hidden Sign** — insert Z between two fixed H gates; interference turns an
-   invisible phase into a deterministic 1.
-5. **Conditional Flip** — wire CNOT's control/target correctly; roles follow wiring,
-   and the full operation is verified coherently (reversed wiring is caught).
-6. **A Shared Pair** — prepare the Bell pair, save **BellPrep**.
-7. **Read the Bell State** — build the decoder, verified as a full operation, save **BellDecode**.
-8. **Quantum Courier** — assemble BellPrep + Alice's encoder + your BellDecode;
-   recover all four two-bit messages. Bitstrings read **B A = q1 q0** (Qiskit order).
+Open [`offline-game/index.html`](offline-game/index.html) in Safari or Chrome. No server, install, or internet connection is needed.
 
-Each completion adds a one-sentence field note to the apprentice's journal — by the
-end, the journal is a plain-language explanation of superdense coding. A **Sandbox**
-and a **Demo Mode** (populated Bell circuit on separate progress) are included.
-
-## Honest quantum, verified twice
-
-- The schematic graph is compiled (typed quantum/classical ports, acyclicity,
-  no qubit fanout, no merged wires, dependency-ordered; custom blocks expand to
-  primitives so their gate cost never disappears) into an operation list.
-- **Local Preview**: an exact statevector simulator in TypeScript gives instant
-  amplitudes, step-through snapshots, and shot sampling. It is validated against
-  Qiskit-generated fixtures (`backend/make_reference.py` →
-  `frontend/src/quantum/__tests__/qiskit_reference.json`, run by `npm test`).
-- **Qollab Simulator (Qiskit)**: the FastAPI backend rebuilds a real
-  `qiskit.QuantumCircuit` and grades with `Statevector` (state fidelity, global
-  phase ignored) and `Operator.equiv` (unitary equivalence up to one global
-  phase). The toolbar badge always says which source produced the numbers, and
-  stale responses are discarded by circuit revision.
-- State-preparation challenges check fidelity to the full target state;
-  operation challenges check the complete unitary — basis probabilities alone
-  are never accepted as proof of a coherent operation. Measurement histograms
-  illustrate; exact simulation grades, so shot noise can't fail a correct circuit.
-
-## Run it
-
-Two terminals (or `./dev.sh`):
+For Qiskit grading and IonQ runs, start the optional local service:
 
 ```bash
-# 1 — Qiskit backend (grading + shots + QASM export)
-cd backend
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
-
-# 2 — frontend
-cd frontend
-npm install
-npm run dev        # http://localhost:5173
+cd offline-game
+./start-service.sh                         # installs Qiskit + qiskit-ionq into backend/.venv
+# open http://127.0.0.1:8000
 ```
 
-The game is fully playable without the backend (Local Preview, honestly labeled);
-"Verify on Qiskit" and Qiskit-sampled counts need it.
+| | Offline | With the service |
+| --- | --- | --- |
+| Grading | Exact local statevector simulator | Qiskit regrades every Check: `Statevector` fidelity per case and `Operator.equiv` per operation. Progress is awarded only when Qiskit agrees. |
+| Measurements | Local sampling | Sampled by Qiskit |
+| Export | Qiskit Python, OpenQASM | OpenQASM written by Qiskit |
+| IonQ | — | Cloud simulator (ideal or Aria / Forte noise models) and, with `IONQ_ENABLE_QPU=1`, trapped-ion QPUs |
+
+Set `IONQ_API_KEY` to enable IonQ. Paid QPU runs show IonQ's cost and queue estimate and require confirmation, and the API key never reaches the browser. IonQ runs can cover every test input of a mission in one job. Results appear beside the ideal prediction and never change your grade.
+
+## What's inside
+
+- **16 missions in two chapters.** First Connection → Inverter → superposition → phase → CNOT → Bell pair → Bell decoder → Quantum Courier (superdense coding), then SWAP, routing, GHZ states, uncomputation, parity, and quantum query algorithms.
+- **Teaching from zero.** A five-page primer, a new-words panel before every mission, a 26-term dictionary, guided worked examples, and three-level hints.
+- **Saved components.** Verified circuits become reusable blocks whose gates always count toward cost.
+- **Sandbox and Bell demo.** A Sandbox for 1–6 qubits, and a populated Bell circuit on separate progress.
+- **Conventions and saving.** Qiskit bit order throughout (A = q0, least significant), autosave, and portable JSON backups.
+
+## Repository layout
+
+```
+offline-game/
+  index.html          the packaged game (built from source/)
+  source/             core.js (simulator, campaign, grading), app.js, lessons.js, audio.js, styles.css
+  backend/            local service: quantum.py (Qiskit), ionq.py (IonQ), main.py (FastAPI), tests/
+  tests/              Node test suite, Qiskit reference fixtures, math cross-checks
+  assets/music/       bundled soundtrack
+```
+
+Details: [game README](offline-game/README.md) · [service, IonQ setup, and API](offline-game/backend/README.md) · [test report](offline-game/TEST_REPORT.md) · [walkthrough](offline-game/WALKTHROUGH.md).
 
 ## Tests
 
 ```bash
-cd frontend && npm test            # 19 core tests incl. Qiskit fixture agreement
-cd backend && python3 -m pytest    # 7 grading tests (fidelity, equiv, courier, reversed CNOT)
-node frontend/e2e/playthrough.mjs  # full-campaign browser playthrough (30 checks)
-```
-
-The e2e script plays the entire campaign with real pointer events: wiring,
-placement, fanout rejection, component save/reuse, all four courier messages,
-undo, autosave restoration, workshop inspection, demo mode.
-
-## Controls
-
-V select · W wire · click output pin → click input pin to wire · Delete remove ·
-Ctrl/Cmd+Z undo · Ctrl/Cmd+Shift+Z redo · Ctrl/Cmd+D duplicate · F fit ·
-`.` single step · Space+drag or middle-drag pan · wheel zoom · Esc cancel.
-
-## Conventions & export
-
-- Qubit 0 is the least significant bit everywhere (Qiskit convention);
-  displayed bitstrings read q(n−1)…q0.
-- Export (toolbar) downloads versioned JSON: schema version, explicit bit-order
-  note, graph, components, camera. `POST /api/qasm` returns OpenQASM 2.0.
-- Progress, per-level circuits, sandbox work, and components persist in
-  localStorage (schema-versioned).
-
-## Demo script (2–3 min)
-
-1. Open **The Hidden Sign** — step through; amplitude view shows the bar swing
-   negative while probability view doesn't change; the final H turns the hidden
-   sign into a deterministic 1 (phase change, shown live).
-2. Open **A Shared Pair** — build H + CNOT, show the joint state (+0.71 |00⟩,
-   +0.71 |11⟩), press **Verify on Qiskit** (badge flips to Qollab Simulator —
-   Qiskit ✓), pass, **Save as Component** → BellPrep.
-3. Open **Quantum Courier** — place BellPrep and BellDecode, wire A through
-   Alice's encoder, click each message button: all four recovered. Open the
-   Selected Component tab to show the real circuit inside a block.
-4. Map: completed graph + the journal that wrote itself.
-
-## Project layout
-
-```
-frontend/src/quantum/   sim.ts (statevector), compile.ts (graph→ops), grade.ts
-frontend/src/model/     types.ts, parts.ts, levels.ts (data-driven campaign)
-frontend/src/state/     store.ts (undo/redo, persistence, components)
-frontend/src/components/ Canvas, Bench, Dock, MapScreen, Workshop, Overlay
-backend/                main.py (FastAPI + Qiskit), test_quantum.py, make_reference.py
+cd offline-game
+node source/build.cjs && node --test tests/*.test.cjs     # 81 tests, incl. Qiskit fixtures
+. backend/.venv/bin/activate && pip install -r backend/requirements-test.txt
+python -m pytest backend/tests                            # Qiskit grading of all 16 missions, API, IonQ lifecycle
 ```
 
 MIT licensed. See `LICENSE`.
-
-## Offline game build (the current game)
-
-[`offline-game/`](offline-game/) is the expanded, current version of Quantum Foundry. It has 16 missions in two chapters, a teaching layer built from zero, a Sandbox with up to six qubits, and music (ten Kevin MacLeod tracks, CC BY 4.0, see `offline-game/assets/music/CREDITS.md`). Open `offline-game/index.html` in Safari or Chrome to play; no server or install is needed.
-
-It uses this repository's **Qiskit grading** through one optional local service. It also adds **IonQ** runs on the cloud simulator, IonQ device noise models, or trapped-ion QPUs:
-
-```bash
-cd offline-game && ./start-service.sh      # then open http://127.0.0.1:8000
-```
-
-- **Check circuit:** Qiskit regrades every Check (`Statevector` fidelity per case, `Operator.equiv` per operation), and progress is awarded only when Qiskit agrees.
-- **Sample output** is measured by Qiskit, and **Export OpenQASM** is written by Qiskit.
-- **IonQ:** set `IONQ_API_KEY` for IonQ simulator runs; add `IONQ_ENABLE_QPU=1` for paid hardware. Paid runs show IonQ's cost estimate and require confirmation.
-
-See [`offline-game/README.md`](offline-game/README.md), [`offline-game/backend/README.md`](offline-game/backend/README.md), and the [test report](offline-game/TEST_REPORT.md).
