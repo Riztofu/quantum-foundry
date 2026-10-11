@@ -60,7 +60,8 @@ class Element {
   }
   click() {
     if (this.disabled) return Promise.resolve();
-    if (this.tagName === 'A' && this.download) this.ownerDocument.downloads.push({ name: this.download, blob: this.ownerDocument.urls.get(this.href) });
+    // A script-triggered download link is not a user click on the workbench, so it is allowed under a dialog.
+    if (this.tagName === 'A' && this.download) { this.ownerDocument.downloads.push({ name: this.download, blob: this.ownerDocument.urls.get(this.href) }); return Promise.resolve(); }
     return this.dispatch('click');
   }
 }

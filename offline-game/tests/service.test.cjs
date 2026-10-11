@@ -141,3 +141,97 @@ test('every game script publishes its globals even where a CommonJS `module` exi
   assert.ok(root.FoundryLessons?.link?.goal, 'FoundryLessons'); assert.ok(root.FoundryPrimer?.length, 'FoundryPrimer'); assert.ok(root.FoundryGlossary?.length, 'FoundryGlossary');
   assert.ok((sandbox.window.FoundryCore || sandbox.FoundryCore)?.levels, 'FoundryCore'); assert.ok(sandbox.window.FoundryAudio?.create, 'FoundryAudio');
 });
+
+test('on Qollab a second IonQ run asks the player to save, then Stop and Run again', async () => {
+  const service = fakeService();
+  const host = { request: async (path, body) => {
+    const r = await service.fetch(path, body ? { method: 'POST', body: JSON.stringify(body) } : {}), data = await r.json();
+    if (path === '/api/health') data.ionq.one_job_per_run = true;
+    return data;
+  } };
+  const e = createEnvironment(); await e.win.quantumFoundry.attachHost(host); await settle();
+  await e.get('demo').click(); await e.begin();
+  await e.get('ionq-open').click(); await e.modalAction(2); await settle();
+  assert.match(e.get('dialog-title').textContent, /IonQ job/);
+  await e.key('Escape'); assert.equal(e.get('modal-root').firstChild, null);
+  await e.get('ionq-open').click();
+  assert.match(e.get('dialog-title').textContent, /Save, then start a new Run/);
+  assert.match(e.get('modal-root').textContent, /one IonQ job per Run/); assert.match(e.get('modal-root').textContent, /Import save/);
+  const posts = service.calls.filter(c => c.path === '/api/ionq/jobs' && c.method === 'POST').length;
+  await e.modalAction(0); // 💾 Save progress
+  assert.equal(e.doc.downloads.at(-1).name, 'Quantum-Foundry-Backup.json');
+  assert.match(e.get('restart-saved').textContent, /press Stop, then Run/);
+  assert.equal(service.calls.filter(c => c.path === '/api/ionq/jobs' && c.method === 'POST').length, posts, 'no second job was sent');
+});
+
+test('the main menu has Save and Import save buttons', async () => {
+  const e = createEnvironment();
+  assert.equal(e.get('campaign').hidden, false);
+  await e.get('map-save').click();
+  assert.equal(e.doc.downloads.at(-1).name, 'Quantum-Foundry-Backup.json');
+  const saved = JSON.parse(await e.doc.downloads.at(-1).blob.text()); assert.equal(saved.format, 'quantum-foundry-project');
+  let opened = false; e.get('import-file').addEventListener('click', () => { opened = true; });
+  await e.get('map-import').click(); assert.equal(opened, true);
+});
+
+test('on Qollab, saves and exports go to the console via sendFile, with a copy box if that fails', async () => {
+  const service = fakeService(), files = [];
+  let failSave = false;
+  const host = {
+    request: async (path, body) => { const r = await service.fetch(path, body ? { method: 'POST', body: JSON.stringify(body) } : {}); return r.json(); },
+    saveFile: async (name, mime, text) => { if (failSave) throw Error('no sendFile'); files.push({ name, mime, text }); }
+  };
+  const e = createEnvironment(); await e.win.quantumFoundry.attachHost(host); await settle();
+  await e.get('map-save').click(); await settle();
+  assert.equal(files.at(-1).name, 'Quantum-Foundry-Backup.json'); assert.equal(JSON.parse(files.at(-1).text).format, 'quantum-foundry-project');
+  assert.equal(e.doc.downloads.length, 0, 'no blocked browser download is attempted');
+  assert.match(e.get('status-text').textContent, /Qollab console/);
+  await e.open('link'); await e.wire('in0', 'out0'); await e.get('export').click(); await settle();
+  assert.equal(files.at(-1).name, 'quantum_foundry_link.py'); assert.match(files.at(-1).text, /QuantumCircuit/);
+  failSave = true; await e.get('export').click(); await settle();
+  assert.match(e.get('dialog-title').textContent, /Copy quantum_foundry_link\.py/); assert.match(e.get('export-text').textContent, /QuantumCircuit/);
+});
+
+test('on Qollab, Import save accepts a pasted save', async () => {
+  const service = fakeService();
+  const host = { request: async (path, body) => (await service.fetch(path, body ? { method: 'POST', body: JSON.stringify(body) } : {})).json(), saveFile: async () => {} };
+  const source = createEnvironment(); await source.open('link'); await source.wire('in0', 'out0'); await source.get('check').click();
+  const save = JSON.stringify(source.win.quantumFoundry.getProject());
+  const e = createEnvironment(); await e.win.quantumFoundry.attachHost(host); await settle();
+  await e.get('map-import').click(); assert.match(e.get('dialog-title').textContent, /Import save/);
+  e.get('import-text').value = save; await e.modalAction(2);
+  assert.match(e.get('dialog-title').textContent, /Import project backup/); await e.modalAction(1);
+  assert.equal(e.win.quantumFoundry.getProject().progress.link, true);
+});
+
+test('IonQ runs travel in the save file and reopen in a later session without the service', async () => {
+  const service = fakeService(), e = served(service); await settle();
+  await e.get('demo').click(); await e.begin();
+  await e.get('ionq-open').click(); e.get('ionq-scope').value = 'all'; await e.modalAction(2); await settle();
+  const job = service.jobs.get('job-1'); Object.assign(job, { status: 'done', counts: [{ '00': 250, '11': 262 }, { '01': 256, '10': 256 }, { '00': 256, '11': 256 }, { '01': 250, '10': 262 }] });
+  await e.modalAction(1); await settle(); // Refresh → done, recorded
+  await e.key('Escape'); await e.get('map-button').click(); await e.get('map-save').click();
+  const save = JSON.parse(await e.doc.downloads.at(-1).blob.text());
+  assert.equal(save.ionqRuns.length, 1); const run = save.ionqRuns[0];
+  assert.equal(run.status, 'done'); assert.equal(run.counts.length, 4); assert.equal(run.ideal.length, 4); assert.equal(run.levelTitle, 'Sandbox');
+
+  const later = createEnvironment({ saved: new Map([['quantum-foundry-offline-v3', JSON.stringify(save)]]) }); // no service at all
+  await later.get('qpu-run').click(); assert.match(later.get('dialog-title').textContent, /Run on IonQ/);
+  await later.modalAction(1); // Previous runs
+  assert.match(later.get('dialog-title').textContent, /Previous IonQ runs/); assert.match(later.get('modal-root').textContent, /Complete/);
+  await later.query('[data-ionq-job="job-1"]').click(); await settle();
+  assert.match(later.get('dialog-title').textContent, /IonQ job/);
+  assert.match(later.get('modal-root').textContent, /distribution fidelity/); assert.match(later.get('modal-root').textContent, /50% →/);
+});
+
+test('saves from earlier versions (no ionqRuns) still load, and damaged run entries are skipped, not fatal', async () => {
+  const source = createEnvironment(); await source.open('link'); await source.wire('in0', 'out0'); await source.get('check').click();
+  const old = JSON.parse(JSON.stringify(source.win.quantumFoundry.getProject())); delete old.ionqRuns;
+  const loaded = createEnvironment().win.quantumFoundry.validateProject(old);
+  assert.equal(loaded.progress.link, true); assert.deepEqual(JSON.parse(JSON.stringify(loaded.ionqRuns)), []);
+  const good = { job_id: 'qollab-lz1-1', name: 'Quantum Foundry · Sandbox', target: 'qollab', target_label: 'IonQ simulator', paid: false, labels: ['|00⟩'], qubits: 2, shots: 512, created: 1791700000, status: 'done', counts: [{ '00': 260, '11': 252 }], ideal: [[0.5, 0, 0, 0.5]] };
+  const mixed = { ...old, ionqRuns: [good, { job_id: 'bad id!', labels: [] }, { ...good, job_id: 'x2', counts: [{ '0': 5 }] }, 'nonsense', { ...good, job_id: 'x3', status: 'running', counts: undefined, ideal: undefined }] };
+  const runs = JSON.parse(JSON.stringify(createEnvironment().win.quantumFoundry.validateProject(mixed).ionqRuns));
+  assert.deepEqual(runs.map(r => r.job_id), ['qollab-lz1-1', 'x3']);
+  assert.deepEqual(runs[0].counts, [{ '00': 260, '11': 252 }]);
+});

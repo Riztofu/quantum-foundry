@@ -3,8 +3,28 @@
   const C = window.FoundryCore, L = window.FoundryLessons, $ = id => document.getElementById(id), esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const KEY = 'quantum-foundry-offline-v3';
   const totalMissions = C.levels.filter(l => l.number).length;
-  const fresh = () => ({ format: 'quantum-foundry-project', version: 3, current: 'link', lastView: 'map', progress: {}, modules: [], circuits: {}, sandboxes: {}, cameras: {}, inputs: {}, hints: {}, briefings: {}, best: {}, seenPrimer: false, settings: { shots: 512, dock: 172, dockCollapsed: false, partsCollapsed: false, layout: 1, sandboxQubits: 2, music: true, volume: .22, track: 'km-monkeys', chapter: 0 } });
+  const fresh = () => ({ format: 'quantum-foundry-project', version: 3, current: 'link', lastView: 'map', progress: {}, modules: [], circuits: {}, sandboxes: {}, cameras: {}, inputs: {}, hints: {}, briefings: {}, best: {}, ionqRuns: [], seenPrimer: false, settings: { shots: 512, dock: 172, dockCollapsed: false, partsCollapsed: false, layout: 1, sandboxQubits: 2, music: true, volume: .22, track: 'km-monkeys', chapter: 0 } });
   const levelFor = (id, p) => id === 'sandbox' ? { ...C.getLevel(id), qubits: p.settings.sandboxQubits } : C.getLevel(id);
+  // ── Saved IonQ runs ─ optional in saves; older saves simply have none. Malformed entries are dropped,
+  // never the whole save, and older game versions ignore the field when importing a newer save.
+  const MAX_SAVED_RUNS = 30, RUN_STATUSES = ['submitted', 'queued', 'validating', 'running', 'done', 'cancelled', 'failed'];
+  function cleanIonqRun(r) {
+    const text = (v, max) => typeof v === 'string' && v.length <= max ? v : null, finite = v => typeof v === 'number' && Number.isFinite(v);
+    if (!r || typeof r !== 'object' || !text(r.job_id, 128) || !/^[A-Za-z0-9._:-]+$/.test(r.job_id)) return null;
+    const qubits = r.qubits, labels = r.labels;
+    if (!Number.isInteger(qubits) || qubits < 1 || qubits > C.LIMITS.qubits || !Array.isArray(labels) || !labels.length || labels.length > 16 || !labels.every(l => text(l, 80) !== null)) return null;
+    if (!Number.isInteger(r.shots) || r.shots < 1 || r.shots > 100000 || !RUN_STATUSES.includes(r.status) || !finite(r.created)) return null;
+    const run = { job_id: r.job_id, name: text(r.name, 120) || 'IonQ job', target: text(r.target, 80) || 'ionq', target_label: text(r.target_label, 80) || 'IonQ', paid: r.paid === true, labels: [...labels], qubits, shots: r.shots, error_mitigation: r.error_mitigation === true, created: r.created, status: r.status };
+    const bitsKey = new RegExp('^[01]{' + qubits + '}$');
+    if (Array.isArray(r.counts) && r.counts.length === labels.length && r.counts.every(t => t && typeof t === 'object' && Object.entries(t).every(([k, v]) => bitsKey.test(k) && Number.isInteger(v) && v >= 0 && v <= 1e7))) run.counts = r.counts.map(t => ({ ...t }));
+    else if (run.status === 'done') return null;
+    if (Array.isArray(r.ideal) && r.ideal.length === labels.length && r.ideal.every(a => Array.isArray(a) && a.length === 2 ** qubits && a.every(v => finite(v) && v >= 0 && v <= 1))) run.ideal = r.ideal.map(a => [...a]);
+    if (text(r.error, 300)) run.error = r.error;
+    if (finite(r.execution_seconds) && r.execution_seconds >= 0) run.execution_seconds = r.execution_seconds;
+    if (text(r.levelTitle, 80)) run.levelTitle = r.levelTitle;
+    if (C.getLevel(r.levelId)) run.levelId = r.levelId;
+    return run;
+  }
   function validateProject(raw) {
     if (!raw || raw.format !== 'quantum-foundry-project' || raw.version !== 3 || !Array.isArray(raw.modules) || raw.modules.length > C.LIMITS.modules) throw Error('Choose a Quantum Foundry project backup (version 3).');
     const p = fresh(), ids = new Set();
@@ -49,11 +69,12 @@
     if (Number.isFinite(raw.settings?.volume)) p.settings.volume = Math.max(0, Math.min(.6, raw.settings.volume));
     if (window.FoundryAudio.tracks[raw.settings?.track]) p.settings.track = raw.settings.track;
     p.settings.chapter = raw.settings?.chapter === 1 ? 1 : 0;
+    p.ionqRuns = Array.isArray(raw.ionqRuns) ? raw.ionqRuns.slice(0, MAX_SAVED_RUNS).map(cleanIonqRun).filter(Boolean) : [];
     if (typeof raw.settings?.ionqTarget === 'string' && /^[a-z0-9.@_-]{1,60}$/.test(raw.settings.ionqTarget)) p.settings.ionqTarget = raw.settings.ionqTarget;
     return p;
   }
   let project = fresh(), storageOK = true, restoreWarning = '';
-  try { const saved = localStorage.getItem(KEY); if (saved) project = validateProject(JSON.parse(saved)); localStorage.setItem(KEY, JSON.stringify(project)); } catch (error) { storageOK = false; restoreWarning = 'Browser saving is unavailable here (for example inside Qollab) or a previous save could not be read. Use Menu → Download backup to keep your work.'; }
+  try { const saved = localStorage.getItem(KEY); if (saved) project = validateProject(JSON.parse(saved)); localStorage.setItem(KEY, JSON.stringify(project)); } catch (error) { storageOK = false; restoreWarning = 'Browser saving is unavailable here (for example inside Qollab) or a previous save could not be read. Use 💾 Save on the map (or Menu → Download backup) to keep your work, and Import save to continue later.'; }
   let level = levelFor(project.current, project), graph = C.clone(project.circuits[level.id] || C.starter(level.id, level.qubits)), camera = C.clone(project.cameras[level.id] || { x: 0, y: 0, zoom: 1 });
   let selected = null, placement = null, pendingWire = null, mode = 'select', pointer = { x: 500, y: 160 }, drag = null, spaceDown = false, undo = [], redo = [], activeTab = 'tests', caseIndex = project.inputs[level.id] || 0, stepIndex = 0, result = null, counts = null, compiled = null, trace = [], graphError = null, interval = null, toastTimer = null, modalFocus = null, uid = Date.now();
   let lessonPage = 0, exampleStep = 0, exampleInput = 0, attempted = false, countsEngine = 'random sampling';
@@ -77,6 +98,8 @@
     const enable = !audio.status().playing; project.settings.music = enable; audio.setEnabled(enable);
     if (enable && !await audio.start()) notify('Audio could not start. Try the music button in Safari or Chrome.'); persist(); renderAudio();
   }
+  // Terminals are fixed in role and wiring but may be dragged; other fixtures stay where the experiment puts them.
+  const movable = node => !node.locked || node.type === 'INPUT' || node.type === 'OUTPUT';
   function nextId(prefix) { let id; do { id = prefix + (++uid); } while (graph.nodes.some(n => n.id === id) || modules().some(m => m.id === id)); return id; }
   function persist() {
     project.current = level.id; project.circuits[level.id] = C.clone(graph); project.cameras[level.id] = C.clone(camera);
@@ -101,7 +124,10 @@
     if (!from.length) return; to.push(C.clone(graph)); graph = from.pop(); selected = null; pendingWire = null; placement = null; invalidate(); persist(); render();
   }
   function chooseCase(index) { pause(); caseIndex = index; project.inputs[level.id] = index; stepIndex = 0; counts = null; compute(); render(); persist(); }
-  function worldPoint(event) { const b = svg.getBoundingClientRect(); return { x: (event.clientX - b.left - camera.x) / camera.zoom, y: (event.clientY - b.top - camera.y) / camera.zoom }; }
+  // On-screen size ÷ layout size: 1 normally, the stage scale when an embedding (the Qollab build) scales the whole page.
+  const uiScale = () => { const b = svg.getBoundingClientRect(); return svg.clientWidth && b.width ? b.width / svg.clientWidth : 1; };
+  const layoutHeight = el => el.clientHeight || el.getBoundingClientRect().height;
+  function worldPoint(event) { const b = svg.getBoundingClientRect(), s = uiScale(); return { x: ((event.clientX - b.left) / s - camera.x) / camera.zoom, y: ((event.clientY - b.top) / s - camera.y) / camera.zoom }; }
   function geometry(node, pool = modules()) { const a = C.arity(node, pool); return { w: 96, h: 80 + (a - 1) * 120 }; }
   function pin(node, dir, port, pool = modules()) { return { x: node.x + (dir === 'out' ? geometry(node, pool).w : 0), y: node.y + 40 + port * 120 }; }
   function route(a, b) {
@@ -112,7 +138,7 @@
     const a = C.arity(node, pool), { w, h } = geometry(node, pool), p = C.ports(node, pool), m = node.type === 'MODULE' ? pool.find(m => m.id === node.moduleId) : null;
     const name = m ? m.name : node.label || ({ CX: 'CNOT', ENCODE: 'ENCODE', TRANSFER: 'SEND A' }[node.type] || node.type);
     const cls = ['node', node.locked ? 'fixed' : '', node.type.toLowerCase(), !options.readonly && selected?.type === 'node' && selected.id === node.id ? 'selected' : '', !options.readonly && compiled?.gates[stepIndex - 1]?.nodeId === node.id ? 'executing' : '', !options.readonly && attempted && graphError?.nodeId === node.id ? 'problem' : ''].join(' ');
-    let html = `<g class="${cls}" data-node="${esc(node.id)}" transform="translate(${node.x} ${node.y})"><title>${esc(name)}${node.locked ? ' · fixed assignment part' : ''}</title><rect class="node-body node-handle" x="0" y="0" width="${w}" height="${h}" rx="1"/>`;
+    let html = `<g class="${cls}" data-node="${esc(node.id)}" transform="translate(${node.x} ${node.y})"><title>${esc(name)}${node.locked ? movable(node) ? ' · fixed terminal · drag to move' : ' · fixed assignment part' : ''}</title><rect class="node-body node-handle" x="0" y="0" width="${w}" height="${h}" rx="1"/>`;
     if (node.type === 'CX') {
       html += '<path class="gate-symbol" d="M 48 46 V 82 M 48 120 V 149 M 39 160 H 57 M 48 151 V 169"/><circle class="gate-symbol-dot" cx="48" cy="40" r="4"/><circle class="gate-symbol" cx="48" cy="160" r="12"/><text class="node-small-label" x="48" y="101" text-anchor="middle">CNOT</text><text class="node-meta" x="48" y="115" text-anchor="middle">CONTROL → TARGET</text>';
     } else if (m) {
@@ -179,7 +205,7 @@
     $('canvas-help').textContent = level.id === 'link' ? 'Click INPUT A’s right pin, then OUTPUT A’s left pin' : pendingWire ? 'Click a compatible pin to finish this wire' : 'Move parts by dragging · scroll to pan · pinch / ⌘ scroll to zoom';
   }
   function fit() {
-    const b = svg.getBoundingClientRect(); if (!b.width || !b.height) return;
+    const r = svg.getBoundingClientRect(), s = uiScale(), b = { width: r.width / s, height: r.height / s }; if (!b.width || !b.height) return;
     const minX = Math.min(...graph.nodes.map(n => n.x)) - 60, maxX = Math.max(...graph.nodes.map(n => n.x + 96)) + 60;
     const minY = Math.min(...graph.nodes.map(n => n.y)) - 70, maxY = Math.max(...graph.nodes.map(n => n.y + geometry(n).h)) + 110;
     camera.zoom = Math.max(.3, Math.min(1.3, b.width / (maxX - minX), b.height / (maxY - minY)));
@@ -187,7 +213,7 @@
     renderCanvas(); persist();
   }
   function zoomBy(factor, x, y) {
-    const b = svg.getBoundingClientRect(), px = x ?? b.width / 2, py = y ?? b.height / 2, old = camera.zoom;
+    const r = svg.getBoundingClientRect(), s = uiScale(), px = x ?? r.width / s / 2, py = y ?? r.height / s / 2, old = camera.zoom;
     camera.zoom = Math.max(.3, Math.min(2, old * factor)); camera.x = px - (px - camera.x) * camera.zoom / old; camera.y = py - (py - camera.y) * camera.zoom / old;
     renderCanvas(); persist();
   }
@@ -240,7 +266,7 @@
         const m = node.type === 'MODULE' ? modules().find(m => m.id === node.moduleId) : null;
         const title = m ? m.name : node.label || node.type;
         const explanation = {X:'X flips 0 to 1 and 1 to 0. It does not measure the qubit. Two X gates undo each other.',H:'H gives a starting 0 two equal quantum paths. A readout has equal chances; another H brings a starting 0 back.',Z:'Z changes the sign on the 1 path. A later gate can make that change affect the readout.',SWAP:'Exchanges the states of two paths. It uses three CNOT gates; crossing wires alone cannot do this.',ORACLE:'One hidden rule is selected for each test. Your circuit must work for every selected rule.',CX:'CNOT checks the upper control without measuring it. If control is 1, the lower target flips; if control is 0, it stays. The control never changes.',ENCODE:'For message cd, Alice changes A using its two message bits.',TRANSFER:'Alice sends A to Bob, who already has B from the shared pair.',INPUT:'Starts the circuit with the selected bits. For shared-pair inputs, A and B start together.',OUTPUT:'End of this path. Read bitstrings from the highest qubit down to A = q0.'}[node.type];
-        $('dock-content').innerHTML = `<div class="inspector"><div><h3>${esc(title)}</h3><p>${C.arity(node, modules())} qubit${C.arity(node, modules()) === 1 ? '' : 's'} · ${node.locked ? 'fixed assignment part' : 'moveable component'}${m ? ' · ' + m.gates.length + ' primitive gates' : ''}</p><p>${m ? m.kind === 'BellPrep' ? 'Verified preparation from |00⟩. The input assumption is part of its contract.' : 'Saved circuit: ' + esc(m.kind) : esc(explanation || 'Connections define the operation. Position affects the drawing only.')}</p>${m ? `<button class="secondary" data-inspect="${esc(m.id)}">Inspect inside →</button>` : ''}${!node.locked ? ' <button class="text-button" data-action="duplicate-selected">Duplicate</button> <button class="text-button" data-action="delete-selected">Delete part</button>' : ''}</div></div>`;
+        $('dock-content').innerHTML = `<div class="inspector"><div><h3>${esc(title)}</h3><p>${C.arity(node, modules())} qubit${C.arity(node, modules()) === 1 ? '' : 's'} · ${node.locked ? movable(node) ? 'fixed terminal · drag or use arrow keys to move' : 'fixed assignment part' : 'moveable component'}${m ? ' · ' + m.gates.length + ' primitive gates' : ''}</p><p>${m ? m.kind === 'BellPrep' ? 'Verified preparation from |00⟩. The input assumption is part of its contract.' : 'Saved circuit: ' + esc(m.kind) : esc(explanation || 'Connections define the operation. Position affects the drawing only.')}</p>${m ? `<button class="secondary" data-inspect="${esc(m.id)}">Inspect inside →</button>` : ''}${!node.locked ? ' <button class="text-button" data-action="duplicate-selected">Duplicate</button> <button class="text-button" data-action="delete-selected">Delete part</button>' : ''}</div></div>`;
       }
     }
   }
@@ -595,12 +621,23 @@
   // ── IonQ: cloud simulators and trapped-ion QPUs through qiskit-ionq ─────
   // Each run prepares one or more selected inputs and samples them on IonQ.
   // Results sit beside the ideal prediction; they never decide grading.
-  let ionqJob = null, ionqPoll = null, ionqEstimateToken = 0;
+  let ionqJob = null, ionqPoll = null, ionqEstimateToken = 0, ionqRunUsed = false; // ionqRunUsed: Qollab's one IonQ job per Run is spent
   const IONQ_KEY = 'quantum-foundry-ionq-jobs';
   const ionqFinal = s => ['done', 'cancelled', 'failed'].includes(s);
   const ionqStatusName = s => ({ submitted: 'Submitted', queued: 'Waiting in the IonQ queue', validating: 'Validating', running: 'Running', done: 'Complete', cancelled: 'Cancelled', failed: 'Failed' }[s] || 'Unknown');
   const ionqMemory = {}; // also keeps comparisons where browser storage is unavailable (Qollab)
-  function ionqContexts() { try { const all = JSON.parse(localStorage.getItem(IONQ_KEY) || '{}'); return { ...(all && typeof all === 'object' ? all : {}), ...ionqMemory }; } catch { return { ...ionqMemory }; } }
+  function ionqContexts() {
+    const saved = Object.fromEntries((project.ionqRuns || []).filter(r => r.ideal).map(r => [r.job_id, { title: r.levelTitle, levelId: r.levelId, ideal: r.ideal, labels: r.labels, qubits: r.qubits }]));
+    try { const all = JSON.parse(localStorage.getItem(IONQ_KEY) || '{}'); return { ...saved, ...(all && typeof all === 'object' ? all : {}), ...ionqMemory }; } catch { return { ...saved, ...ionqMemory }; }
+  }
+  // Keep every IonQ run (with its counts and ideal prediction) in the project, so 💾 Save carries it.
+  function recordIonqRun(job) {
+    const context = ionqContexts()[job?.job_id] || {};
+    const run = cleanIonqRun({ ...job, levelTitle: context.title, levelId: context.levelId, ideal: context.ideal });
+    if (!run) return;
+    project.ionqRuns = [run, ...(project.ionqRuns || []).filter(r => r.job_id !== run.job_id)].slice(0, MAX_SAVED_RUNS);
+    persist();
+  }
   function rememberIonqContext(id, context) {
     ionqMemory[id] = context;
     try { const all = { ...ionqContexts(), [id]: context }, keep = Object.keys(all).sort((a, b) => (all[b].created || 0) - (all[a].created || 0)).slice(0, 30); localStorage.setItem(IONQ_KEY, JSON.stringify(Object.fromEntries(keep.map(k => [k, all[k]])))); } catch { /* history is a convenience */ }
@@ -610,10 +647,18 @@
       ? '<ol><li>In a terminal: <code>cd backend</code>, create the virtual environment, and <code>pip install -r requirements.txt</code>.</li><li><code>export IONQ_API_KEY="your key"</code> (add <code>IONQ_ENABLE_QPU=1</code> for paid hardware).</li><li><code>python main.py</code>, then open <b>http://127.0.0.1:8000</b>.</li></ol>'
       : '<p>The service is running but has no IonQ API key. Stop it, run <code>export IONQ_API_KEY="your key"</code>, and start <code>python main.py</code> again. Add <code>IONQ_ENABLE_QPU=1</code> to offer paid QPUs.</p>';
     modal('Run on IonQ', `<p>Quantum Foundry can send your circuit to IonQ: the free cloud simulator (ideal or with Aria / Forte noise models) or a real trapped-ion QPU. The API key stays inside the local service.</p>${steps}<p class="lesson-note">${!servedOverHttp && service.kind === 'qiskit' ? 'Qiskit is connected, but this page was opened as a file. IonQ runs need the page served by the service at http://127.0.0.1:8000.' : 'Everything else in the game works without IonQ.'}</p>`,
-      [{ label: 'Check again', run: async () => { await probeEngine(false); if (ionqReady()) ionqPanel(); } }, ...(ionqJob ? [{ label: 'Last job', run: () => showIonqJob(ionqJob) }] : []), { label: 'Close', primary: true, run: closeModal }], true);
+      [{ label: 'Check again', run: async () => { await probeEngine(false); if (ionqReady()) ionqPanel(); } }, ...(project.ionqRuns?.length ? [{ label: 'Previous runs', run: ionqHistory }] : []), { label: 'Close', primary: true, run: closeModal }], true);
+  }
+  function ionqRestart() {
+    modal('Save, then start a new Run', `<p>Qollab sends <b>one IonQ job per Run</b>, and this Run has already used it. To send another:</p><ol class="experiment-steps"><li><b>Save your progress.</b> Qollab keeps nothing once the Run stops.</li><li>Press <b>Stop</b>, then <b>Run</b> again and choose an IonQ simulator in Select QPU.</li><li>On the map, press <b>Import save</b> and pick the file to continue where you left off.</li></ol><p id="restart-saved" class="tiny" aria-live="polite"></p>`, [
+      { label: '💾 Save progress', primary: true, run: () => { backup(); if ($('restart-saved')) $('restart-saved').textContent = host ? 'Your save is in the Qollab console below: use its download (or copy) button, then press Stop, then Run.' : 'Saved Quantum-Foundry-Backup.json. Now press Stop, then Run.'; } },
+      ...(ionqJob ? [{ label: 'View last job', run: () => showIonqJob(ionqJob) }] : []),
+      { label: 'Close', run: closeModal }
+    ]);
   }
   function ionqPanel() {
     if (!ionqReady()) { ionqSetup(); return; }
+    if (ionqRunUsed) { ionqRestart(); return; }
     if (!readyToRun()) return;
     const cases = C.cases(level), maxQubits = service.ionq.max_qubits || Infinity, all = cases.length > 1 && cases.length <= 16 && cases.length * level.qubits <= maxQubits, targets = service.ionq.targets;
     const chosen = targets.some(t => t.id === project.settings.ionqTarget) ? project.settings.ionqTarget : service.ionq.default || targets[0].id;
@@ -627,7 +672,7 @@
       <div id="ionq-estimate" class="ionq-estimate" aria-live="polite"></div>
       <label class="ionq-check ionq-paid" id="ionq-paid-row"><input type="checkbox" id="ionq-paid"> I understand this QPU run uses paid IonQ credits.</label>
       <p id="ionq-error" class="error"></p>`,
-      [{ label: 'Recent jobs', run: ionqHistory }, { label: 'Cancel', run: closeModal }, { label: 'Submit to IonQ', primary: true, run: submitIonq }], true);
+      [{ label: 'Previous runs', run: ionqHistory }, { label: 'Cancel', run: closeModal }, { label: 'Submit to IonQ', primary: true, run: submitIonq }], true);
     for (const id of ['ionq-target', 'ionq-scope', 'ionq-shots', 'ionq-mitigation']) $(id).onchange = updateIonqForm;
     updateIonqForm();
   }
@@ -667,10 +712,12 @@
     try {
       const job = await api('/api/ionq/jobs', { ...ionqBody(selection, circuits), confirm_paid: selection.target.paid });
       rememberIonqContext(job.job_id, { title: level.title, levelId: level.id, qubits: level.qubits, labels: circuits.map(c => c.label), ideal: circuits.map(c => c.ideal), created: Date.now() });
-      ionqJob = job; renderIonQStatus(); showIonqJob(job); watchIonq(job.job_id, selection.target.paid ? 15000 : 2500);
+      if (service.ionq?.one_job_per_run) ionqRunUsed = true;
+      ionqJob = job; recordIonqRun(job); renderIonQStatus(); showIonqJob(job); watchIonq(job.job_id, selection.target.paid ? 15000 : 2500);
       notify('Submitted to ' + job.target_label + ' · job ' + job.job_id);
     } catch (error) {
       lostService(error);
+      if (error.status === 429) { ionqRunUsed = true; ionqRestart(); return; }
       if ($('ionq-error')) { $('ionq-error').textContent = error.message; if (button) { button.disabled = false; button.textContent = 'Submit to IonQ'; } } else notify('IonQ: ' + error.message);
     }
   }
@@ -685,9 +732,10 @@
     try {
       const job = await api('/api/ionq/jobs/' + encodeURIComponent(jobId));
       if (!ionqJob || ionqJob.job_id === jobId) ionqJob = job;
+      recordIonqRun(job);
       renderIonQStatus();
       if ($('ionq-job-view')?.dataset.job === jobId) showIonqJob(job);
-      else if (ionqFinal(job.status) && quiet) notify('IonQ job ' + ionqStatusName(job.status).toLowerCase() + ': ' + job.name + '. Open Menu → Run on IonQ → Recent jobs.');
+      else if (ionqFinal(job.status) && quiet) notify('IonQ job ' + ionqStatusName(job.status).toLowerCase() + ': ' + job.name + '. Open Run on IonQ → Previous runs.');
       return job;
     } catch (error) { lostService(error); if (!quiet) notify('Could not read the IonQ job: ' + error.message); return null; }
   }
@@ -712,25 +760,66 @@
       ${done ? `<div class="ionq-legend"><span class="ideal">Ideal prediction</span><span class="device">${job.paid ? 'QPU' : 'IonQ'} samples</span></div>${ionqComparison(job, context)}` : ''}
       <p class="lesson-note">${job.paid ? 'Real trapped-ion hardware: gates and readout are imperfect, so small wrong-outcome counts are expected.' : 'IonQ cloud simulator results.'} Samples cover the listed inputs only; Check circuit verifies the complete contract exactly.</p></div>`;
     modal('IonQ job', body, [
-      ...(final ? [] : [{ label: 'Cancel job', run: async () => { try { ionqJob = await api('/api/ionq/jobs/' + encodeURIComponent(job.job_id) + '/cancel', {}); showIonqJob(ionqJob); renderIonQStatus(); } catch (error) { notify('Could not cancel: ' + error.message); } } }, { label: 'Refresh', run: () => refreshIonq(job.job_id) }]),
-      { label: 'Recent jobs', run: ionqHistory },
+      ...(final ? [] : [{ label: 'Cancel job', run: async () => { try { ionqJob = await api('/api/ionq/jobs/' + encodeURIComponent(job.job_id) + '/cancel', {}); recordIonqRun(ionqJob); showIonqJob(ionqJob); renderIonQStatus(); } catch (error) { notify('Could not cancel: ' + error.message); } } }, { label: 'Refresh', run: () => refreshIonq(job.job_id) }]),
+      { label: 'Previous runs', run: ionqHistory },
       { label: 'Close', primary: true, run: closeModal }
     ], true);
   }
   async function ionqHistory() {
-    try {
-      const { jobs } = await api('/api/ionq/jobs');
-      modal('Recent IonQ jobs', jobs.length ? `<p>Jobs submitted by this service, newest first. Open one to check its status or compare its results.</p>${jobs.map(j => `<div class="workshop-item"><div><strong>${esc(j.name)}</strong><p>${esc(j.target_label)} · ${j.labels.length} circuit${j.labels.length === 1 ? '' : 's'} · ${new Date(j.created * 1000).toLocaleString()}</p></div><button class="secondary" data-ionq-job="${esc(j.job_id)}">Open →</button></div>`).join('')}` : '<p>No IonQ jobs yet.</p>',
-        [...(ionqReady() ? [{ label: 'New run', run: ionqPanel }] : []), { label: 'Close', primary: true, run: closeModal }], true);
-    } catch (error) { lostService(error); notify('Could not list IonQ jobs: ' + error.message); }
+    let live = [];
+    if (service.kind === 'qiskit' && (host || typeof fetch === 'function')) { try { live = (await api('/api/ionq/jobs')).jobs || []; } catch (error) { lostService(error); } }
+    const saved = new Map((project.ionqRuns || []).map(r => [r.job_id, r]));
+    const runs = [...new Map([...live.map(j => [j.job_id, { ...saved.get(j.job_id), ...j }]), ...[...saved.values()].filter(r => !live.some(j => j.job_id === r.job_id)).map(r => [r.job_id, r])]).values()].sort((a, b) => b.created - a.created);
+    modal('Previous IonQ runs', runs.length ? `<p>Newest first. Runs are kept in your project, so <b>💾 Save</b> carries them to your next session. Open one to see its results.</p>${runs.map(r => `<div class="workshop-item"><div><strong>${esc(r.name)}</strong><p>${esc(r.target_label)} · ${r.labels.length} circuit${r.labels.length === 1 ? '' : 's'} · ${esc(ionqStatusName(r.status))} · ${new Date(r.created * 1000).toLocaleString()}</p></div><button class="secondary" data-ionq-job="${esc(r.job_id)}">Open →</button></div>`).join('')}` : '<p>No IonQ runs yet.</p>',
+      [...(ionqReady() ? [{ label: 'New run', run: ionqPanel }] : []), { label: 'Close', primary: true, run: closeModal }], true);
   }
-  async function openIonqJob(jobId) { const job = await refreshIonq(jobId); if (job) { showIonqJob(job); if (!ionqFinal(job.status)) watchIonq(jobId, job.paid ? 15000 : 2500); } }
+  async function openIonqJob(jobId) {
+    const saved = (project.ionqRuns || []).find(r => r.job_id === jobId);
+    if (!saved || !ionqFinal(saved.status)) {
+      // Unfinished (or unsaved) runs: ask the service for fresh status. A run from an earlier Qollab Run is unknown there.
+      try {
+        if (service.kind !== 'qiskit') throw Error('offline');
+        const job = await api('/api/ionq/jobs/' + encodeURIComponent(jobId)); recordIonqRun(job); showIonqJob(job);
+        if (!ionqFinal(job.status)) watchIonq(jobId, job.paid ? 15000 : 2500);
+        return;
+      } catch (error) { if (!saved) { notify('Could not read that IonQ run: ' + error.message); return; } }
+    }
+    showIonqJob(saved);
+  }
   function nextAssignment() {
     closeModal(); const next = C.levels.find(l => l.number && !project.progress[l.id] && C.available(l, project.progress, modules()));
     if (next) openLevel(next.id); else openMap();
   }
+  // ── The finale: completing the last mission ───────────────────────────────
+  function finale() {
+    const done = C.levels.filter(l => l.number && project.progress[l.id]).length, best = Object.values(project.best).reduce((sum, b) => sum + b.count, 0);
+    const verdict = verdictNow(), runs = (project.ionqRuns || []).length;
+    const built = [['Superposition & interference', 'The Hidden Sign'], ['An entangled Bell pair', 'BellPrep'], ['Superdense coding', 'Quantum Courier'], ['Qubit routing', 'Across the Register'], ['GHZ entanglement', 'A Four-Way Link'], ['Uncomputation', 'Undo the Machine'], ['Phase kickback', 'Deutsch'], ['A full quantum algorithm', 'Bernstein–Vazirani']];
+    const body = `<div class="finale"><div class="finale-burst" aria-hidden="true">🎉</div><h3 class="finale-title">Foundry complete!</h3>
+      <p class="finale-lead">You started with a single wire and finished with a working quantum algorithm. Every circuit along the way was yours, and every one was verified.</p>
+      <div class="finale-stats"><div><b>${done} / ${totalMissions}</b>missions</div><div><b>${modules().length}</b>saved components</div><div><b>${best}</b>gates in your best builds</div><div><b>${runs}</b>IonQ run${runs === 1 ? '' : 's'}</div></div>
+      <ul class="finale-built">${built.map(([what, where]) => `<li><b>${esc(what)}</b><span>${esc(where)}</span></li>`).join('')}</ul>
+      ${verdict ? `<p class="grader-note qiskit">Final circuit confirmed by Qiskit ${esc(verdict.qiskit)}: ${esc(verdict.summary)}.</p>` : ''}
+      <p class="tiny">Keep exploring: Sandbox goes up to six qubits, your saved blocks stay available, and every mission can be replayed for a smaller design.</p></div>`;
+    modal('Hooray — you did it!', body, [
+      { label: 'Keep building', run: closeModal },
+      { label: '💾 Save progress', run: backup },
+      { label: 'Open Sandbox', run: () => { closeModal(); openLevel('sandbox'); } },
+      { label: 'Campaign map', primary: true, run: () => { closeModal(); openMap(); } }
+    ], true);
+    $('dialog-kicker').textContent = 'CAMPAIGN COMPLETE · ' + done + ' / ' + totalMissions;
+    confetti();
+    [0, 450, 900].forEach(delay => setTimeout(() => audio.chime(), delay));
+  }
+  function confetti() {
+    const backdrop = $('modal-root').querySelector('.modal-backdrop'); if (!backdrop) return;
+    const colors = ['#eaa368', '#81ccd0', '#a9ca90', '#efa298', '#e9d58a', '#b9a3e3'], rand = (a, b) => a + Math.random() * (b - a);
+    const pieces = Array.from({ length: 140 }, (_, i) => `<i style="left:${rand(0, 100).toFixed(1)}%;background:${colors[i % colors.length]};width:${rand(6, 11).toFixed(0)}px;height:${rand(9, 16).toFixed(0)}px;animation-delay:${rand(0, 2.4).toFixed(2)}s;animation-duration:${rand(2.8, 5.2).toFixed(2)}s;--spin:${rand(-900, 900).toFixed(0)}deg;--drift:${rand(-90, 90).toFixed(0)}px${i % 3 ? '' : ';border-radius:50%'}"></i>`).join('');
+    try { const layer = document.createElement('div'); layer.className = 'confetti'; layer.setAttribute('aria-hidden', 'true'); layer.innerHTML = pieces; backdrop.appendChild(layer); } catch { /* celebration only */ }
+  }
   function completion() {
     const final = level.id === 'oracle', courier = level.id === 'courier';
+    if (final) { finale(); return; }
     const body = `<p>${final ? 'All eight hidden registers recovered with one query each. You built a complete quantum algorithm from the operations you learned.' : courier ? 'Every message arrived correctly. Your saved circuits form a working communication device. Chapter II is now available: routing, registers, and algorithms.' : 'Your circuit satisfies every required test. ' + esc(level.reward) + ' unlocked.'}</p>${verdictNow() ? `<p class="grader-note qiskit">Confirmed by Qiskit ${esc(verdictNow().qiskit)}: ${esc(verdictNow().summary)}.</p>` : ''}<div class="completion-metrics"><div><b>${result.tests.length}</b>tests passed</div><div><b>${result.count}</b>gates, hardest case</div><div><b>${result.depth}</b>maximum depth</div></div>${level.targetCost ? `<p class="tiny">Compact design benchmark: ${level.targetCost} gates. Best verified build: ${project.best[level.id].count} gates. Benchmarks are optional; every correct circuit passes.</p>` : ''}${level.kind ? `<p>Package this circuit as <b>${esc(level.kind)}</b> to use it as a part in later assignments.</p><label for="component-name">Component name<input id="component-name" maxlength="32" value="${esc(level.kind)}"></label><p id="component-error" class="error"></p>` : ''}${courier ? '<p>The protocol uses one transmitted qubit and a previously shared entangled pair. Your next device will route states through a three-qubit register.</p>' : ''}${final ? '<p>Explore up to six qubits in Sandbox, combine your saved blocks, or export a selected circuit to Qiskit. Your entire campaign remains available for replay.</p>' : ''}`;
     modal(final ? 'The Hidden Register: complete' : courier ? 'Chapter I complete' : 'Circuit verified', body, [
       { label: 'Keep building', run: closeModal },
@@ -770,7 +859,39 @@
     modal(m.name + ' · inside the block', `<p>${esc(m.kind)} · ${m.qubits} qubits · ${m.gates.length} primitive gates · version ${m.version}. ${m.kind === 'BellPrep' ? 'Preparation contract assumes input |00⟩.' : 'The stored gate sequence preserves the original input/output mapping.'}</p>${schematic}<div class="gate-list">${m.gates.map((g, i) => `${i + 1}. ${g.type === 'CX' ? 'CNOT q' + g.control + ' → q' + g.target : g.type + ' q' + g.target}`).join('<br>') || 'Direct quantum connections (identity)'}</div>`, actions, true);
   }
   function download(name, text, mime) {
-    if (host) console.log('──── ' + name + ' (copy from here if the download is blocked) ────\n' + text); const url = URL.createObjectURL(new Blob([text], { type: mime })); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000); }
+    // Qollab's sandboxed page blocks browser downloads: hand the file to Qollab's console (sendFile) instead.
+    if (host?.saveFile) {
+      console.log('──── ' + name + ' ────\n' + text);
+      host.saveFile(name, mime, text).then(() => notify(name + ' is in the Qollab console below — use its download or copy button.'), () => textFallback(name, text));
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([text], { type: mime })); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
+  function textFallback(name, text) {
+    modal('Copy ' + name, `<p>This page cannot save files here. Select all the text below, copy it, and save it as <b>${esc(name)}</b>.</p><textarea id="export-text" class="export-text" readonly spellcheck="false">${esc(text)}</textarea>`, [{ label: 'Select all', run: () => { $('export-text').focus(); $('export-text').select(); } }, { label: 'Done', primary: true, run: closeModal }], true);
+  }
+  function importText(text) {
+    try {
+      if (text.length > 8 * 1024 * 1024) throw Error('Project backups must be smaller than 8 MB.');
+      const imported = validateProject(JSON.parse(text));
+      modal('Import project backup?', '<p>This replaces the progress, circuits, and components in this browser. Download a Backup of your current work first if needed.</p>', [{ label: 'Cancel', run: closeModal }, { label: 'Import project', primary: true, run: () => {
+        closeModal(); pause(); project = imported;
+        // Do not persist the previous workbench over the newly imported project.
+        level = levelFor(project.current, project); graph = C.clone(project.circuits[level.id] || C.starter(level.id, level.qubits)); camera = C.clone(project.cameras[level.id] || { x: 0, y: 0, zoom: 1 });
+        selected = null; placement = null; pendingWire = null; undo = []; redo = []; attempted = false; caseIndex = project.inputs[level.id] || 0; stepIndex = 0; result = null; counts = null; activeTab = 'tests';
+        audio.setEnabled(project.settings.music); audio.setVolume(project.settings.volume); audio.setTrack(project.settings.track); renderAudio();
+        document.documentElement.style.setProperty('--dock', project.settings.dock + 'px'); compute(); render(); persist(); openMap(); notify('Project imported. Your components and progress are ready.');
+      } }]);
+    } catch (error) { notify('Import could not be read: ' + error.message); }
+  }
+  function importSave() {
+    if (!host) { $('import-file').click(); return; }
+    modal('Import save', '<p>Choose your saved <b>Quantum-Foundry-Backup.json</b>, or open it in a text editor, copy everything, and paste it here.</p><textarea id="import-text" class="export-text" spellcheck="false" placeholder="Paste the save text here"></textarea>', [
+      { label: 'Choose file…', run: () => $('import-file').click() },
+      { label: 'Cancel', run: closeModal },
+      { label: 'Import pasted save', primary: true, run: () => { const text = $('import-text').value.trim(); if (!text) { notify('Paste the save text first, or choose the file.'); return; } importText(text); } }
+    ]);
+  }
   function backup() { persist(); download('Quantum-Foundry-Backup.json', JSON.stringify(project, null, 2), 'application/json'); notify('Backup downloaded: circuits, progress, and saved components.'); }
   function exportPython() { if (!readyToRun()) return; download('quantum_foundry_' + level.id + '.py', C.qiskit(compiled, level.qubits, typeof source().initial === 'number' ? source().initial : source().basisInput || 0, source().message, level.id), 'text/x-python'); notify('Qiskit Python exported. Its shebang is included; install Qiskit separately to run it.'); }
   function hint() { const hints = L[level.id].hints, index = Math.min(project.hints[level.id] || 0, hints.length - 1); project.hints[level.id] = index + 1; persist(); modal('Hint ' + (index + 1) + ' / ' + hints.length, `<p>${esc(hints[index])}</p>`, [{ label: 'Back to circuit', primary: true, run: closeModal }]); }
@@ -787,7 +908,7 @@
     if (nodeTarget && nodeTarget.dataset.node !== 'ghost') {
       e.preventDefault(); svg.focus(); placement = null; pendingWire = null;
       const node = graph.nodes.find(n => n.id === nodeTarget.dataset.node); selected = { type: 'node', id: node.id }; revealDock('selected');
-      if (!node.locked) { pause(); svg.setPointerCapture(e.pointerId); drag = { type: 'move', id: node.id, dx: p.x - node.x, dy: p.y - node.y, before: C.clone(graph), changed: false }; }
+      if (movable(node)) { pause(); svg.setPointerCapture(e.pointerId); drag = { type: 'move', id: node.id, dx: p.x - node.x, dy: p.y - node.y, before: C.clone(graph), changed: false }; }
       render(); return;
     }
     if (edgeTarget) { placement = null; pendingWire = null; selected = { type: 'edge', id: edgeTarget.dataset.edge }; renderCanvas(); renderDock(); renderPalette(); svg.focus(); return; }
@@ -802,7 +923,7 @@
   });
   svg.addEventListener('pointermove', e => {
     pointer = worldPoint(e);
-    if (drag?.type === 'pan') { camera.x = drag.x + e.clientX - drag.startX; camera.y = drag.y + e.clientY - drag.startY; renderCanvas(); }
+    if (drag?.type === 'pan') { const s = uiScale(); camera.x = drag.x + (e.clientX - drag.startX) / s; camera.y = drag.y + (e.clientY - drag.startY) / s; renderCanvas(); }
     else if (drag?.type === 'move') {
       const node = graph.nodes.find(n => n.id === drag.id), x = Math.max(-18000, Math.min(18000, Math.round((pointer.x - drag.dx) / 20) * 20)), y = Math.max(-18000, Math.min(18000, Math.round((pointer.y - drag.dy) / 20) * 20));
       if (node.x !== x || node.y !== y) { node.x = x; node.y = y; drag.changed = true; renderCanvas(); }
@@ -818,7 +939,7 @@
   svg.addEventListener('contextmenu', e => e.preventDefault());
   svg.addEventListener('wheel', e => {
     e.preventDefault(); const b = svg.getBoundingClientRect();
-    if (e.ctrlKey || e.metaKey) zoomBy(Math.exp(-e.deltaY * .008), e.clientX - b.left, e.clientY - b.top);
+    if (e.ctrlKey || e.metaKey) zoomBy(Math.exp(-e.deltaY * .008), (e.clientX - b.left) / uiScale(), (e.clientY - b.top) / uiScale());
     else { camera.x -= e.deltaX; camera.y -= e.deltaY; renderCanvas(); persist(); }
   }, { passive: false });
   svg.addEventListener('keydown', e => {
@@ -892,28 +1013,19 @@
   $('primer-button').classList.toggle('pulse', !project.seenPrimer);
   $('glossary-button').onclick = () => { setMenu(false); glossaryModal(); };
   $('save-component').onclick = saveComponentDialog;
-  $('backup').onclick = backup; $('import').onclick = () => $('import-file').click(); $('export').onclick = exportPython;
+  $('backup').onclick = backup; $('import').onclick = importSave;
+  $('map-save').onclick = backup; $('map-import').onclick = importSave; $('export').onclick = exportPython;
   $('reset-circuit').onclick = () => modal('Reset this schematic?', '<p>Clear your placed parts and wires for this assignment. Saved components and earned campaign progress stay available. Undo restores the circuit after a reset.</p>', [{ label: 'Cancel', run: closeModal }, { label: 'Reset circuit', primary: true, run: () => { closeModal(); selected = null; placement = null; commit(C.starter(level.id, level.qubits), 'Assignment reset. Undo can restore your circuit.'); fit(); } }]);
   $('toggle-parts').onclick = () => { project.settings.partsCollapsed = !project.settings.partsCollapsed; $('app').classList.toggle('parts-collapsed', project.settings.partsCollapsed); $('toggle-parts').setAttribute('aria-expanded', String(!project.settings.partsCollapsed)); persist(); requestAnimationFrame(fit); };
   $('import-file').onchange = async e => {
     const file = e.target.files[0]; e.target.value = ''; if (!file) return;
-    try {
-      if (file.size > 8 * 1024 * 1024) throw Error('Project backups must be smaller than 8 MB.');
-      const imported = validateProject(JSON.parse(await file.text()));
-      modal('Import project backup?', '<p>This replaces the progress, circuits, and components in this browser. Download a Backup of your current work first if needed.</p>', [{ label: 'Cancel', run: closeModal }, { label: 'Import project', primary: true, run: () => {
-        closeModal(); pause(); project = imported;
-        // Do not persist the previous workbench over the newly imported project.
-        level = levelFor(project.current, project); graph = C.clone(project.circuits[level.id] || C.starter(level.id, level.qubits)); camera = C.clone(project.cameras[level.id] || { x: 0, y: 0, zoom: 1 });
-        selected = null; placement = null; pendingWire = null; undo = []; redo = []; attempted = false; caseIndex = project.inputs[level.id] || 0; stepIndex = 0; result = null; counts = null; activeTab = 'tests';
-        audio.setEnabled(project.settings.music); audio.setVolume(project.settings.volume); audio.setTrack(project.settings.track); renderAudio();
-        document.documentElement.style.setProperty('--dock', project.settings.dock + 'px'); compute(); render(); persist(); openMap(); notify('Project imported. Your components and progress are ready.');
-      } }]);
-    } catch (error) { notify('Import could not be read: ' + error.message); }
+    if (file.size > 8 * 1024 * 1024) { notify('Import could not be read: Project backups must be smaller than 8 MB.'); return; }
+    importText(await file.text());
   };
   const resizer = $('dock-resizer'); let dockDrag = null;
-  const maxDockHeight = () => Math.max(130, Math.min(420, window.innerHeight / 2, document.querySelector('.workspace').getBoundingClientRect().height - 220));
-  resizer.addEventListener('pointerdown', e => { dockDrag = { y: e.clientY, height: $('dock').getBoundingClientRect().height }; resizer.setPointerCapture(e.pointerId); e.preventDefault(); });
-  resizer.addEventListener('pointermove', e => { if (!dockDrag) return; project.settings.dock = Math.max(130, Math.min(maxDockHeight(), dockDrag.height + dockDrag.y - e.clientY)); document.documentElement.style.setProperty('--dock', project.settings.dock + 'px'); });
+  const maxDockHeight = () => Math.max(130, Math.min(420, window.innerHeight / 2, layoutHeight(document.querySelector('.workspace')) - 220));
+  resizer.addEventListener('pointerdown', e => { dockDrag = { y: e.clientY, height: layoutHeight($('dock')), scale: uiScale() }; resizer.setPointerCapture(e.pointerId); e.preventDefault(); });
+  resizer.addEventListener('pointermove', e => { if (!dockDrag) return; project.settings.dock = Math.max(130, Math.min(maxDockHeight(), dockDrag.height + (dockDrag.y - e.clientY) / dockDrag.scale)); document.documentElement.style.setProperty('--dock', project.settings.dock + 'px'); });
   resizer.addEventListener('pointerup', () => { dockDrag = null; persist(); });
   resizer.addEventListener('keydown', e => { if (['ArrowUp', 'ArrowDown'].includes(e.key)) { e.preventDefault(); project.settings.dock = Math.max(130, Math.min(maxDockHeight(), project.settings.dock + (e.key === 'ArrowUp' ? 20 : -20))); document.documentElement.style.setProperty('--dock', project.settings.dock + 'px'); persist(); } });
   document.addEventListener('keydown', e => {
@@ -941,7 +1053,7 @@
     else if (key === 'F') { e.preventDefault(); fit(); }
     else if (['X', 'H', 'Z', 'C', 'S'].includes(key)) { const type = key === 'C' ? 'CX' : key === 'S' ? 'SWAP' : key; if (level.parts.includes(type) && C.arity({type}) <= level.qubits) selectPart(type); }
     else if (e.key.startsWith('Arrow') && selected?.type === 'node') {
-      const n = graph.nodes.find(n => n.id === selected.id); if (n?.locked) return;
+      const n = graph.nodes.find(n => n.id === selected.id); if (!n || !movable(n)) return;
       e.preventDefault(); const next = C.clone(graph), node = next.nodes.find(n => n.id === selected.id); node.x = Math.max(-18000, Math.min(18000, node.x + (e.key === 'ArrowRight' ? 20 : e.key === 'ArrowLeft' ? -20 : 0))); node.y = Math.max(-18000, Math.min(18000, node.y + (e.key === 'ArrowDown' ? 20 : e.key === 'ArrowUp' ? -20 : 0))); commit(next);
     }
   });

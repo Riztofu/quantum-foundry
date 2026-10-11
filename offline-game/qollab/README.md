@@ -13,7 +13,7 @@ This effort is supported by Qollab & IonQ.
 2. The game appears **above the console**. Press **🧭 Start from zero** for a two-minute primer, or open **01 · First Connection** on the map.
 3. Build the circuit, then press **Check circuit**. Qiskit grades it: the engine tag reads **QISKIT · LIVE**, and the Tests tab shows each case's state fidelity and the operator verdict.
 4. Press **Run on …** (under Sample output) to send the selected input, or every test input at once, to the backend you chose. The samples appear beside the ideal prediction.
-5. Press **Stop** when you're done. Nothing is saved between Runs, so use **Menu ≡ → Download backup** to keep progress. The backup is also printed to the console in case the download is blocked.
+5. Press **Stop** when you're done. Nothing is saved between Runs, so press **💾 Save** on the map to keep progress, including your previous IonQ runs and their results, and **Import save** after your next Run. The save is also printed to the console in case the download is blocked.
 
 Use a recent Chrome, Edge, or Firefox 153+. Safari cannot run Qollab projects yet.
 
@@ -43,7 +43,7 @@ Saved components carry their real gate cost into later missions. The Sandbox goe
 
   Measurement counts illustrate the result; exact simulation decides it, so shot noise never fails a correct circuit.
 - **Sampling and export.** Sample output is measured by Qiskit. **Export OpenQASM** is written by `qasm2.dumps`.
-- **Your Qollab backend, one job per Run.** "Run on …" prepares each selected input and runs it on the backend from Select QPU. IonQ accepts one job per Run, so Quantum Foundry places several inputs **side by side in one circuit**: input *i* on qubits *i·n … i·n+n−1*. It then splits the measured bitstrings back apart. All four Courier messages fit in one 8-qubit job, and all eight uncomputation inputs fit in one 24-qubit job. Each input shows "correct outcome in X % of shots" or its distribution fidelity against the ideal prediction.
+- **Your Qollab backend, one job per Run.** "Run on …" prepares each selected input and runs it on the backend from Select QPU. IonQ accepts one job per Run. When you've used it, the game offers to save your progress, then asks you to Stop and Run again. Quantum Foundry also places several inputs **side by side in one circuit**: input *i* on qubits *i·n … i·n+n−1*. It then splits the measured bitstrings back apart. All four Courier messages fit in one 8-qubit job, and all eight uncomputation inputs fit in one 24-qubit job. Each input shows "correct outcome in X % of shots" or its distribution fidelity against the ideal prediction.
 
 ## Project files
 

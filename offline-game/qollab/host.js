@@ -21,7 +21,7 @@ export function createHost(bridge, backend) {
       : `This page runs on ${d.label}, chosen in Qollab's Select QPU dialog. Choose an IonQ simulator there (Stop, then Run) to sample on IonQ's cloud.`;
     return {
       service: 'quantum-foundry', host: 'qollab', engine: 'qiskit-statevector', qiskit: d.qiskit,
-      ionq: { configured: true, key: true, provider: 'Qollab', qpu_enabled: d.paid, default: 'qollab', max_qubits: d.max_qubits, note,
+      ionq: { configured: true, key: true, provider: 'Qollab', qpu_enabled: d.paid, default: 'qollab', max_qubits: d.max_qubits, one_job_per_run: d.ionq, note,
         targets: [{ id: 'qollab', label: d.label, short: d.short, kind: d.paid ? 'qpu' : 'simulator', noise_model: d.noise_model, paid: d.paid }] }
     };
   }
@@ -30,7 +30,8 @@ export function createHost(bridge, backend) {
     const d = await describe();
     if (d.ionq && used) throw fail('Qollab allows one IonQ job per Run, and this Run already sent one. Press Stop, then Run again to send another.', 429);
     used = true;
-    const id = 'qollab-' + (++sequence), record = {
+    // Unique across Runs, so saved runs from earlier sessions are never overwritten.
+    const id = 'qollab-' + Date.now().toString(36) + '-' + (++sequence), record = {
       job_id: id, status: 'running', target: 'qollab', target_label: d.label, paid: d.paid, name: body.name,
       labels: body.circuits.map(c => c.label), qubits: body.circuits[0].qubits, shots: body.shots,
       error_mitigation: !!(d.paid && body.error_mitigation), created: Date.now() / 1000
@@ -44,6 +45,11 @@ export function createHost(bridge, backend) {
 
   return {
     name: 'qollab',
+    // Exports and saves: Qollab's sendFile shows the file in its console with download / copy buttons.
+    async saveFile(name, mime, text) {
+      try { await call('send_file', JSON.stringify({ name, mime, text })); }
+      catch (error) { if (typeof globalThis.sendFile === 'function') await globalThis.sendFile(name, mime, text); else throw error; }
+    },
     async request(path, body) {
       if (path === '/api/health') return health();
       if (path === '/api/verify') return call('verify', JSON.stringify(body));
