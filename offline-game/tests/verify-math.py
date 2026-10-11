@@ -2,6 +2,7 @@
 """Independent dense-matrix check; optional developer check requiring NumPy and Node."""
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import numpy as np
 
@@ -23,7 +24,10 @@ for n in range(1, 7):
 
 root = Path(__file__).resolve().parents[1]
 node_code = "const C=require('./source/core.js');let s='';process.stdin.on('data',d=>s+=d);process.stdin.on('end',()=>process.stdout.write(JSON.stringify(JSON.parse(s).map(f=>C.evolve(f.gates,f.n,f.initial,false).state))));"
-result = subprocess.run(['node', '-e', node_code], cwd=root, input=json.dumps(fixtures), capture_output=True, text=True, check=True)
+runtime = shutil.which('node') or shutil.which('bun')
+if not runtime:
+    raise SystemExit('Install Node.js or Bun to run the independent simulator comparison.')
+result = subprocess.run([runtime, '-e', node_code], cwd=root, input=json.dumps(fixtures), capture_output=True, text=True, check=True)
 actuals = json.loads(result.stdout)
 matrices = {}
 single = {'H': np.array([[1,1],[1,-1]])/np.sqrt(2), 'X': np.array([[0,1],[1,0]]), 'Z': np.diag([1,-1])}

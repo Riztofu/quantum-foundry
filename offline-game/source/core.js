@@ -397,7 +397,42 @@
     lines.push('', 'state = Statevector.from_instruction(qc)', 'print(state.probabilities_dict())', 'qc.measure_all()', 'print(qc.draw())', '', '# Use your Qollab runner to execute qc on a supported simulator.', '');
     return lines.join('\n');
   }
-  const api = { EPS, LIMITS, clone, basis, bits, labels, qubitName, bitOrder, apply, evolve, probabilities, fidelity, operatorScore, concurrence, marginals, sample, encodedBell, levels, getLevel, arity, ports, starter, edge, allowedKinds, oracleGates, expandGates, validateShape, validateFixtures, compile, connect, cases, grade, moduleContract, available, solution, qiskit };
+  // ── Requests for the local Qiskit service (backend/main.py) ──
+  // Inputs travel as {basis} or {state}; gates are plain primitives with A = q0.
+  const inputSpec = initial => typeof initial === 'number' ? { basis: initial } : { state: clone(initial) };
+  const plainGates = gates => gates.map(({ type, target, control }) => ({ type, target, ...(['CX', 'SWAP'].includes(type) ? { control } : {}) }));
+  function verificationRequest(levelId, graph, modules = []) {
+    const level = getLevel(levelId); if (!level || levelId === 'sandbox') throw Error('Sandbox has no campaign contract.');
+    const all = cases(level), request = { qubits: level.qubits, operator: null };
+    request.cases = all.map(c => ({ label: c.input, initial: inputSpec(c.initial), operations: plainGates(compile(graph, modules, level.qubits, c.message).gates), expected: clone(c.expected) }));
+    if (references[levelId]) request.operator = { operations: plainGates(compile(graph, modules, level.qubits, all[0].message).gates), reference: plainGates(references[levelId]) };
+    return request;
+  }
+  function serviceCircuits(level, graph, modules = [], indices = [0]) {
+    const all = cases(level);
+    return indices.map(i => {
+      const c = all[i]; if (!c) throw Error('Unknown test input.');
+      const gates = compile(graph, modules, level.qubits, c.message).gates;
+      return { label: c.input, qubits: level.qubits, initial: inputSpec(c.initial), operations: plainGates(gates), ideal: probabilities(evolve(gates, level.qubits, c.initial, false).state) };
+    });
+  }
+  function classicalFidelity(ideal, counts, n) {
+    const total = Object.values(counts).reduce((a, b) => a + b, 0); if (!total) return 0;
+    const overlap = ideal.reduce((sum, p, i) => sum + Math.sqrt(p * (counts[bits(i, n)] || 0) / total), 0);
+    return Math.min(1, overlap * overlap);
+  }
+  function qasm(compiled, n, initial = 0, message = '00', levelId = 'sandbox') {
+    const emit = g => g.type === 'CX' ? `cx q[${g.control}],q[${g.target}];` : g.type === 'SWAP' ? `swap q[${g.control}],q[${g.target}];` : `${g.type.toLowerCase()} q[${g.target}];`;
+    const lines = ['OPENQASM 2.0;', 'include "qelib1.inc";', `// Quantum Foundry: ${levelId} · bitstrings read ${bitOrder(n)} (A = q[0], least significant)`, `qreg q[${n}];`, `creg c[${n}];`];
+    if (levelId === 'decode') for (const g of [...prep, ...(message[1] === '1' ? [Z(0)] : []), ...(message[0] === '1' ? [X(0)] : [])]) lines.push(emit(g) + ' // supplied Bell input');
+    else {
+      for (let q = 0; q < n; q++) if (initial & 2 ** q) lines.push(`x q[${q}]; // prepare input`);
+      if (levelId === 'uncompute') for (const g of ghz) lines.push(emit(g) + ' // supplied preparation');
+    }
+    lines.push('barrier q;', ...compiled.gates.map(emit), 'measure q -> c;', '');
+    return lines.join('\n');
+  }
+  const api = { EPS, LIMITS, clone, basis, bits, labels, qubitName, bitOrder, apply, evolve, probabilities, fidelity, operatorScore, concurrence, marginals, sample, encodedBell, levels, getLevel, arity, ports, starter, edge, allowedKinds, oracleGates, expandGates, validateShape, validateFixtures, compile, connect, cases, grade, moduleContract, available, solution, qiskit, qasm, references, inputSpec, plainGates, verificationRequest, serviceCircuits, classicalFidelity };
   root.FoundryCore = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

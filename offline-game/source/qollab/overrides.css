@@ -1,0 +1,8 @@
+
+/* ── Qollab: the page is an embedded frame above the console ── */
+html,body{height:auto;overflow:visible;background:var(--bg)}
+#qf-qollab{position:relative;height:820px;overflow:hidden;background:var(--bg)}
+#qf-qollab #app{height:100%}
+#qf-qollab .campaign,#qf-qollab .modal-backdrop{position:absolute}
+#qf-qollab .toast{position:absolute}
+#qf-qollab .modal{max-height:760px}

@@ -7,15 +7,15 @@
 3. Double-click **index.html**. If another app opens it, Control-click → Open With → Safari or Google Chrome.
 4. Choose **First Connection**, or **Bell demo** for an immediate working example.
 
-No installation, server, terminal, account, or internet connection is needed. Code, graphics, styles, teaching examples, and the original synthesized soundtrack are embedded in index.html. Safari 14.1+ or a current Chrome is the intended browser; actual Mac/browser verification remains pending.
+The game plays without an installation, server, account, or internet connection. Keep the extracted folder together: the ten optional Kevin MacLeod tracks live in `assets/music/`, while two original synthesized scores remain built in. Safari 14.1+ or a current Chrome is the intended browser; actual Mac/browser verification remains pending.
 
 The optional **Launch-Quantum-Foundry.command** begins with `#!/bin/bash` and opens the adjacent HTML file using macOS `open`. If macOS refuses that launcher, open index.html directly.
 
 ## What is new
 
 - **A ground-up teaching layer**: 🧭 **Start from zero** on the map is a five-page primer assuming no background at all (what a bit is, amplitudes, measurement, interference, how the workshop works); every mission briefing opens **How it works** with a NEW WORDS panel defining each term before it is used; and **Menu ≡ → Dictionary** holds all 26 terms in plain words.
-- **Ten Kevin MacLeod soundtrack tracks** (CC BY 4.0, see CREDITS.md) with playlist auto-advance, plus the two original scores — fetch the MP3s once with `music/get-soundtrack.command`.
-- **A live Qiskit runner** (`qiskit/runner.py`): while it runs, Sample output is measured by real Qiskit and the engine tag reads QISKIT RUNNER · LIVE.
+- **Ten bundled Kevin MacLeod soundtrack tracks** (CC BY 4.0; see `assets/music/CREDITS.md`) with playlist auto-advance, plus the two original scores.
+- **Qiskit grading and IonQ runs** through one optional local service (`./start-service.sh`). Qiskit confirms every Check circuit (`Statevector` + `Operator.equiv`), samples measurements, and exports OpenQASM. IonQ runs go to the cloud simulator, its noise models, or a trapped-ion QPU, with cost estimates, job tracking, and comparison with the ideal prediction.
 
 - **16 working missions in two chapters**, progressing from a wire to communication, routing, registers, and quantum query algorithms.
 - A **popup before every mission entry and replay**. Build explains the goal and available parts; How it works contains a circuit diagram with interactive execution steps; Try & observe explains an experiment and its result.
@@ -43,7 +43,7 @@ Keyboard shortcuts with canvas focus: **V** select, **W** wire, **X/H/Z/C/S** ch
 
 Music begins after clicking **Build circuit**, entering Sandbox, or clicking **♫**. Browsers require a user gesture before audio can start. The ♫ buttons start or mute music. **Menu ≡** contains the track selector and a volume slider; preferences are saved with your project. Music pauses when the tab is hidden and resumes when it returns, if enabled. If audio is unavailable, the game continues normally.
 
-The soundtrack is **ten Kevin MacLeod tracks** — Monkeys Spinning Monkeys, Fluffing a Duck, Sneaky Snitch, Scheming Weasel, Carefree, Investigations, Local Forecast — Elevator, Wallpaper, Amazing Plan, and Cipher — played in order with automatic advance, all licensed Creative Commons: By Attribution 4.0 (attributions in `CREDITS.md`). The MP3s are not bundled: run `music/get-soundtrack.command` once (double-click it on a Mac) to download them into the `music/` folder. Any track that is missing simply falls back to the game's two built-in original scores (Copper Signals, Night Shift), which also remain selectable.
+The ten Kevin MacLeod tracks are Monkeys Spinning Monkeys, Fluffing a Duck, Carefree, Sneaky Snitch, Cipher, Scheming Weasel (faster version), Investigations, Local Forecast, Merry Go, and Happy Bee. They play in order with automatic advance and are licensed under Creative Commons Attribution 4.0; see `assets/music/CREDITS.md` for track links. The unchanged MP3s are bundled for offline playback. If one cannot load, the game falls back to its two original scores (Copper Signals, Night Shift), which remain selectable.
 
 ## Campaign
 
@@ -74,7 +74,7 @@ Work saves automatically in the same browser when local storage is available. Lo
 
 **Menu ≡ → Download backup** creates a portable JSON copy of mission circuits, progress, all Sandbox sizes, component versions, best scores, selected inputs, cameras, layout, and music preferences. **Import backup** restores it on another computer. Backups from the earlier version-3 prototype remain compatible. When local storage is unavailable, the game remains playable and asks you to keep a manual backup.
 
-Send your friend the ZIP or just index.html. Keep a separate backup JSON before replacing or moving an older game file.
+Send your friend the ZIP or full extracted folder so `assets/music/` stays beside `index.html`. The game itself still works if the MP3 folder is missing, using the two original scores. Keep a separate backup JSON before replacing or moving an older game file.
 
 ## Simulation scope
 
@@ -86,22 +86,48 @@ State preparation compares the complete state up to global phase. Reusable opera
 
 The query fixtures are ideal reversible oracles. A query is counted even when a selected oracle expands to identity. Their gate expansions are inspectable and included in export; one query does not imply zero implementation cost. Superdense coding requires both a previously shared entangled pair and one transmitted qubit.
 
-## Qiskit and Qollab
+## Qiskit, Qollab, and IonQ
 
-The game has two Qiskit integrations; playing never requires either.
-
-**Live Qiskit runner.** `qiskit/runner.py` is a small local web service that executes the game's circuits on real Qiskit (`Statevector` evolution and measurement sampling):
+The game plays entirely offline on its exact local simulator. One optional local service, `backend/main.py`, adds real Qiskit and IonQ:
 
 ```sh
-pip install -r qiskit/requirements.txt
-python3 qiskit/runner.py
+./start-service.sh                 # creates backend/.venv, installs Qiskit + qiskit-ionq, starts the service
+# then open http://127.0.0.1:8000  (the service serves the game too)
 ```
 
-While it runs, the tag under **Check circuit** switches from *IDEAL SIMULATION* to **QISKIT RUNNER · LIVE** (click the tag, or **Menu ≡ → Connect Qiskit runner**, to re-probe), and **Sample output** measures fresh preparations on Qiskit instead of the local sampler — the Measurements panel states which engine produced the counts and that the Qiskit probabilities match the local preview. Stop the runner and the game falls back to its local exact simulator, honestly relabeled. `tests/verify-qiskit-runner.py` cross-checks the two engines on 48 random circuits over the full gate set (agreement ~1e-15).
+| Feature | Without the service | With the service |
+| --- | --- | --- |
+| **Check circuit** | Exact local grading | Local grading, then **Qiskit confirms** every case with `Statevector` fidelity and every reusable operation with `Operator.equiv` (equal up to one global phase). Progress is awarded only when Qiskit agrees. |
+| **Sample output** | Local random sampling | Sampled by Qiskit, with a check that its probabilities match the local preview |
+| **Export** | Qiskit Python; OpenQASM 2.0 from the local generator | OpenQASM 2.0 written by Qiskit (`qasm2.dumps`) |
+| **IonQ** | — | IonQ cloud simulator (ideal, or with Aria / Forte noise models) and, if enabled, trapped-ion QPUs |
 
-**Qiskit export.** **Menu ≡ → Export to Qiskit** downloads Python beginning with `#!/usr/bin/env python3`. It prepares the selected input, expands saved blocks and the selected oracle, prints the ideal state probabilities, and adds measurements.
+The engine tag under **Check circuit** always says which engine produced the numbers: *LOCAL SIMULATION* or **QISKIT 2.x · LIVE**. Click it (or **Menu ≡ → Connect Qiskit service**) to re-check the connection. The Tests tab shows a QISKIT column with each case's state fidelity and the operator verdict. If the service stops mid-check, the game says so and grades locally. Results are tied to the exact circuit that was sent, so a reply that arrives after you edit the circuit is discarded.
 
-Qollab submission and physical hardware execution are separate integrations. This package does not submit to Qollab automatically.
+Opened directly as `index.html`, the page still finds the service on `127.0.0.1:8000` and uses its free Qiskit features. IonQ runs need the page served by the service itself, because they can spend credits.
+
+**IonQ runs.** Set `IONQ_API_KEY` before starting the service. Then use **Run on IonQ ↗** (under Sample output) or **Menu ≡ → Run on IonQ…** to:
+
+- choose a target: *IonQ cloud simulator (ideal)*, *simulator · aria-1 / forte-1 noise model* (free), or a QPU such as *IonQ Forte 1* (paid, offered only with `IONQ_ENABLE_QPU=1`);
+- run the selected input, or **all of the mission's test inputs in one IonQ job** (for example all four Courier messages or all eight Bernstein–Vazirani secrets);
+- see **IonQ's own cost and queue estimate** before a paid run, which must be confirmed with a checkbox. Optional debiasing error mitigation is available on QPUs;
+- follow the job as it updates automatically, cancel it, and reopen past jobs under **Recent jobs**.
+
+Finished jobs show the IonQ samples next to the ideal prediction for every input: "correct outcome in 96.1% of shots" for deterministic answers, and distribution fidelity otherwise. Hardware samples illustrate the circuit on a real machine. They never change your grade; Check circuit stays exact.
+
+`backend/requirements-qollab.txt` installs Qollab's pinned Qiskit and qiskit-ionq forks instead of the upstream packages. See [`backend/README.md`](backend/README.md) for configuration, the API, and the security model.
+
+**Qiskit export.** **Menu ≡ → Export to Qiskit** downloads Python beginning with `#!/usr/bin/env python3`. It prepares the selected input, expands saved blocks and the selected oracle, prints the ideal state probabilities, and adds measurements. **Export OpenQASM** writes the same circuit as OpenQASM 2.0.
+
+## Qollab build
+
+`node source/build-qollab.cjs` writes `qollab/`, a Qollab **JS / Qiskit project** (15 files, all under Qollab's 2 MB limit). Upload that folder or its zip at qollab.xyz → New Project → *Upload your own files*. On Qollab:
+
+- Qiskit runs inside the page (Pyodide). `foundry/` holds the same `quantum.py` and `circuit.py` as `backend/`, plus `bridge.py`, which `main.js` calls.
+- "Run on …" uses the backend chosen in Qollab's **Select QPU** dialog. IonQ accepts one job per Run, so several inputs are packed side by side into one circuit and split back apart.
+- Nothing persists between Runs. Backups and exports are also printed to the console.
+- The MP3s exceed Qollab's file limit, so they stream from this repository via jsDelivr; the synthesized scores are the fallback.
+- `qollab/README.md` becomes the project page.
 
 ## Optional development
 
@@ -109,13 +135,15 @@ Source and tests are included. With Node 18+ installed:
 
 ```sh
 node source/build.cjs
-node --test tests/core.test.cjs tests/expanded.test.cjs tests/gameplay.test.cjs tests/audio.test.cjs
+node --test tests/*.test.cjs
 ```
 
-No npm packages are required. The build embeds CSS, core, lessons, audio, and app scripts in one HTML file. Optional independent matrix verification requires NumPy:
+No npm packages are required. The build embeds CSS, core, lessons, audio, and app scripts in one HTML file. `tests/qiskit-reference.test.cjs` checks the JavaScript simulator against Qiskit-generated statevectors and unitaries (`python -m backend.make_reference > tests/qiskit_reference.json` regenerates them). With the backend virtual environment active:
 
 ```sh
-python3 tests/verify-math.py
+python -m pytest backend/tests        # Qiskit grading (all 16 missions), API security, IonQ lifecycle (fake provider)
+python tests/verify-math.py           # independent NumPy matrix check
+python tests/verify-qiskit.py         # 48 random circuits: Qiskit service vs local simulator
 ```
 
 The DOM and audio fixtures verify behavior, not browser rendering or audible playback. See **TEST_REPORT.md** for the validation record and limits; **WALKTHROUGH.md** contains spoilers and a presentation script.

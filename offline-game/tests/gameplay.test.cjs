@@ -36,7 +36,7 @@ test('the actual packaged game plays through all eight assignments using placeme
   assert.match(e.win.quantumFoundry.exportQiskit(), /qc\.cx\(0, 1\)/); assert.match(e.win.quantumFoundry.exportQiskit(), /qc\.z\(0\)/); assert.match(e.win.quantumFoundry.exportQiskit(), /qc\.x\(0\)/);
 });
 test('undo, redo, deletion, duplication, reset and moving preserve fixed fixtures', async () => {
-  const e = createEnvironment(); await e.get('sandbox').click(); const id = await e.place('H', 320);
+  const e = createEnvironment(); await e.get('sandbox').click(); await e.begin(); const id = await e.place('H', 320);
   await e.get('undo').click(); assert.equal(e.state().graph.nodes.some(n => n.id === id), false);
   await e.get('redo').click(); assert.equal(e.state().graph.nodes.some(n => n.id === id), true);
   await e.query(`[data-node="${id}"]`).dispatch('pointerdown', e.position(350, 150)); await e.get('canvas').dispatch('pointerup');
@@ -72,17 +72,17 @@ test('component workshop renders the saved graph and its expanded primitive sequ
   await e.query(`[data-inspect="${m.id}"]`).click(); assert.match(e.get('modal-root').innerHTML, /module-schematic/); assert.match(e.get('modal-root').innerHTML, /CNOT q0 → q1/); assert.match(e.get('modal-root').innerHTML, /assumes input/);
 });
 test('the Bell demo runs in sandbox and grants no campaign progress', async () => {
-  const e = createEnvironment(); await e.get('demo').click(); assert.equal(e.state().level, 'sandbox'); assert.equal(e.state().operations.length, 2); assert.deepEqual(plain(e.win.quantumFoundry.getProject().progress), {});
+  const e = createEnvironment(); await e.get('demo').click(); await e.begin(); assert.equal(e.state().level, 'sandbox'); assert.equal(e.state().operations.length, 2); assert.deepEqual(plain(e.win.quantumFoundry.getProject().progress), {});
   assert.match(e.get('dock-content').innerHTML, /1.000/); await e.get('run').click(); assert.match(e.get('dock-content').innerHTML, /512 fresh preparations/);
 });
 test('stepping, rewinding, playing, sampling and shot selection are operational', async () => {
-  const e = createEnvironment(); await e.get('demo').click(); await e.get('reset-execution').click(); assert.equal(e.win.quantumFoundry.getStatus().step, 0);
+  const e = createEnvironment(); await e.get('demo').click(); await e.begin(); await e.get('reset-execution').click(); assert.equal(e.win.quantumFoundry.getStatus().step, 0);
   await e.get('step').click(); assert.equal(e.win.quantumFoundry.getStatus().step, 1); await e.get('rewind').click(); assert.equal(e.win.quantumFoundry.getStatus().step, 0);
   await e.get('play').click(); assert.equal(e.intervals.size, 1); e.tick(); assert.equal(e.win.quantumFoundry.getStatus().step, 1); e.tick(); assert.equal(e.win.quantumFoundry.getStatus().step, 2); assert.equal(e.intervals.size, 0);
   e.get('shots').value = '128'; await e.get('shots').dispatch('change'); await e.get('run').click(); assert.match(e.get('dock-content').innerHTML, /128 fresh preparations/);
 });
 test('Qiskit download contains executable Python source with the requested shebang', async () => {
-  const e = createEnvironment(); await e.get('demo').click(); await e.get('export').click(); const download = e.doc.downloads[0]; assert.equal(download.name, 'quantum_foundry_sandbox.py'); const python = await download.blob.text(); assert.ok(python.startsWith('#!/usr/bin/env python3')); assert.match(python, /qc\.h\(0\)/); assert.match(python, /qc\.cx\(0, 1\)/);
+  const e = createEnvironment(); await e.get('demo').click(); await e.begin(); await e.get('export').click(); const download = e.doc.downloads[0]; assert.equal(download.name, 'quantum_foundry_sandbox.py'); const python = await download.blob.text(); assert.ok(python.startsWith('#!/usr/bin/env python3')); assert.match(python, /qc\.h\(0\)/); assert.match(python, /qc\.cx\(0, 1\)/);
 });
 test('broken imported modules, recursion and altered fixtures are rejected before replacing user work', async () => {
   const e = createEnvironment(); await fullCampaign(e); const p = plain(e.win.quantumFoundry.getProject()); const bad = plain(p); bad.modules[0].gates = [{ type: 'Z', target: 0 }]; assert.throws(() => e.win.quantumFoundry.validateProject(bad), /invalid saved/);
@@ -111,6 +111,9 @@ test('editing and saving a new component version preserves the original block an
 test('every mission entry and reload opens its explanatory briefing', async () => {
   const e = createEnvironment(); await e.query('[data-level="link"]').click();
   assert.ok(e.get('briefing-content')); assert.equal(e.doc.querySelectorAll('[data-lesson-page]').length, 3);
+  assert.match(e.get('briefing-content').textContent, /Two gates you will meet/);
+  assert.match(e.get('briefing-content').textContent, /Hadamard/);
+  assert.match(e.get('briefing-content').textContent, /CNOT has a control and a target/);
   assert.match(e.get('briefing-content').textContent, /delivers the input qubit unchanged/);
   await e.get('lesson-tab-1').click(); assert.match(e.get('briefing-content').textContent, /cannot split to copy/);
   await e.get('lesson-tab-2').click(); assert.match(e.get('briefing-content').textContent, /What the result means/);
@@ -150,7 +153,7 @@ test('the phase teaching example shows a negative amplitude while keeping both p
 });
 
 test('game-menu controls open, close, download, and retain keyboard focus on Escape', async () => {
-  const e = createEnvironment(); await e.get('demo').click();
+  const e = createEnvironment(); await e.get('demo').click(); await e.begin();
   assert.equal(e.get('game-menu').hidden, true); await e.get('menu-button').click(); assert.equal(e.get('game-menu').hidden, false);
   assert.equal(e.get('menu-button').getAttribute('aria-expanded'), 'true');
   await e.get('backup').click(); assert.equal(e.get('game-menu').hidden, true); assert.equal(e.doc.downloads[0].name, 'Quantum-Foundry-Backup.json');
@@ -160,10 +163,10 @@ test('game-menu controls open, close, download, and retain keyboard focus on Esc
 });
 
 test('the bench and parts collapse, persist, and reopen through the relevant controls', async () => {
-  const e = createEnvironment(); await e.get('demo').click(); await e.get('toggle-dock').click(); await e.get('toggle-parts').click();
+  const e = createEnvironment(); await e.get('demo').click(); await e.begin(); await e.get('toggle-dock').click(); await e.get('toggle-parts').click();
   assert.equal(e.get('toggle-dock').getAttribute('aria-expanded'), 'false'); assert.equal(e.get('toggle-parts').getAttribute('aria-expanded'), 'false');
   assert.equal(e.get('app').classList.contains('dock-collapsed'), true); assert.equal(e.get('app').classList.contains('parts-collapsed'), true);
-  const reload = createEnvironment({saved:e.saved}); assert.equal(reload.get('app').classList.contains('dock-collapsed'), true); assert.equal(reload.get('app').classList.contains('parts-collapsed'), true);
+  const reload = createEnvironment({saved:e.saved}); await reload.begin(); assert.equal(reload.get('app').classList.contains('dock-collapsed'), true); assert.equal(reload.get('app').classList.contains('parts-collapsed'), true);
   await reload.get('step').click(); assert.equal(reload.get('toggle-dock').getAttribute('aria-expanded'), 'true');
   await reload.get('toggle-dock').click(); await reload.get('tab-measurements').click(); assert.equal(reload.get('toggle-dock').getAttribute('aria-expanded'), 'true'); assert.equal(reload.get('measurement-settings').hidden, false);
   await reload.get('toggle-parts').click(); assert.equal(reload.get('toggle-parts').getAttribute('aria-expanded'), 'true');
@@ -228,7 +231,7 @@ function expandedSeed() {
   }
   return new Map([['quantum-foundry-offline-v3',JSON.stringify(p)]]);
 }
-test('all sixteen missions play through real controls, save nine component kinds, and restore their results',async()=>{
+test('all sixteen missions play through real controls, save nine component kinds, and restore their results',{timeout:30000},async()=>{
   const e=createEnvironment();await fullCampaign(e);await finishExpandedCampaign(e);
   const p=plain(e.win.quantumFoundry.getProject());assert.equal(Object.values(p.progress).filter(Boolean).length,16);
   assert.deepEqual(p.modules.map(m=>m.kind),['Inverter','ControlledFlip','BellPrep','BellDecode','Swap','GHZPrep','GHZDecode','Parity','GHZ4Prep']);
@@ -258,7 +261,7 @@ test('all new teaching diagrams, query examples, and hints leave the working cir
   }
 });
 test('one-to-six-qubit Sandbox circuits persist independently and survive backup import',async()=>{
-  const e=createEnvironment();await e.get('sandbox').click();const h=await e.place('H',320);await e.wire('in0',h);await e.wire(h,'out0');await e.wire('in1','out1');const two=e.state().graph;
+  const e=createEnvironment();await e.get('sandbox').click();assert.equal(e.get('check').hidden,true);assert.match(e.get('briefing-content').textContent,/Hadamard/);assert.match(e.get('briefing-content').textContent,/CNOT/);await e.get('lesson-tab-2').click();assert.match(e.get('briefing-content').textContent,/Sandbox rules/);assert.doesNotMatch(e.get('briefing-content').textContent,/What Check circuit verifies/);await e.begin();const h=await e.place('H',320);await e.wire('in0',h);await e.wire(h,'out0');await e.wire('in1','out1');const two=e.state().graph;
   e.get('register-size').value='6';await e.get('register-size').dispatch('change');assert.equal(e.state().qubits,6);assert.equal(e.state().bitOrder,'q5q4q3q2q1q0');assert.equal(e.get('input-select').querySelectorAll('option').length,64);assert.equal(e.get('input-buttons').hidden,true);
   await buildPaths(e,[gate('H',[0],200),...Array.from({length:5},(_,q)=>gate('CX',[q,q+1],330+q*110))]);await e.get('run').click();const six=e.state().graph;assert.equal(e.win.quantumFoundry.getStatus().error,null);assert.equal(e.get('dock-content').querySelectorAll('.measurement-row').length,2);
   await e.get('tab-state').click();assert.equal(e.get('dock-content').querySelectorAll('.state-row').length,64);assert.equal(e.get('dock-content').querySelector('.register-marginals').children.length,6);
@@ -304,6 +307,14 @@ test('the from-zero primer, mission words, and dictionary teach without blocking
   await reload.get('lesson-tab-1').click();
   assert.match(reload.get('briefing-content').textContent, /NEW WORDS IN THIS MISSION/);
   assert.match(reload.get('briefing-content').textContent, /quantum version of a bit/);
+});
+
+test('credits show exactly the requested names and music credits list all ten recordings', async () => {
+  const e = createEnvironment(); await e.get('credits').click();
+  assert.deepEqual(e.get('modal-root').querySelector('.credit-list').querySelectorAll('li').map(item => item.textContent), ['Maverick Pil', 'Yujie Wu', 'Kenneth Zhong', 'Anissa Li', 'Kevin MacLeod', 'Qollab', 'Carnegie Mellon University']);
+  await e.modalAction(0); await e.get('music-credits').click();
+  assert.equal(e.get('modal-root').querySelector('.music-credit-list').querySelectorAll('li').length, 10);
+  assert.match(e.get('modal-root').textContent, /Creative Commons Attribution 4.0/);
 });
 
 test('the primer widgets demonstrate squaring, sampling, and interference interactively', async () => {

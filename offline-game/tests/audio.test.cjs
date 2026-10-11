@@ -46,15 +46,15 @@ test('Kevin MacLeod file tracks play, carry attribution, advance at track end, a
   const {audio}=fileEngine({track:'km-monkeys'});
   assert.equal(await audio.start(),true);
   const s=audio.status();assert.equal(s.playing,true);assert.equal(s.kind,'file');assert.match(s.credit,/Kevin MacLeod/);assert.equal(s.title,'Monkeys Spinning Monkeys');
-  const el=AudioElementStub.instances.at(-1);assert.match(el.src,/music\/Monkeys Spinning Monkeys\.mp3$/);assert.equal(el.paused,false);
+  const el=AudioElementStub.instances.at(-1);assert.match(el.src,/assets\/music\/monkeys-spinning-monkeys\.mp3$/);assert.equal(el.paused,false);
   audio.setVolume(.3);assert.ok(Math.abs(el.volume-.5)<1e-9);
   el.emit('ended');await Promise.resolve();await Promise.resolve();await Promise.resolve();
   assert.equal(audio.status().track,'km-fluffing');assert.equal(audio.status().playing,true);
-  assert.match(AudioElementStub.instances.at(-1).src,/Fluffing a Duck\.mp3$/);
+  assert.match(AudioElementStub.instances.at(-1).src,/assets\/music\/fluffing-a-duck\.mp3$/);
   audio.stop();assert.equal(AudioElementStub.instances.at(-1).paused,true);
 });
 test('a missing soundtrack file falls back to the original score instead of silence',async()=>{
-  AudioElementStub.instances.length=0;AudioElementStub.failing=new Set(['Sneaky Snitch']);
+  AudioElementStub.instances.length=0;AudioElementStub.failing=new Set(['sneaky-snitch.mp3']);
   const {audio,intervals}=fileEngine({track:'km-sneaky'});
   assert.equal(await audio.start(),false);
   await Promise.resolve();await Promise.resolve();await Promise.resolve();

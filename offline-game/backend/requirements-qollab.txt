@@ -1,0 +1,4 @@
+# Alternate Qollab-patched Qiskit stack; install instead of requirements.txt.
+-r requirements-common.txt
+qiskit @ git+https://github.com/qollabxyz/qiskit.git@1881654844d67d71805f2eefa7d972845183743e
+qiskit-ionq @ git+https://github.com/qollabxyz/qiskit-ionq.git@8fdc4ac4727f68a633bc708f9facab57ca1e5c35

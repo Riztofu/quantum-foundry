@@ -421,6 +421,7 @@
     }
   });
   const api = { lessons, primer, glossary };
-  if (typeof module === 'object' && module.exports) module.exports = api;
-  else { root.FoundryLessons = lessons; root.FoundryPrimer = primer; root.FoundryGlossary = glossary; }
+  // Always publish the globals: some runtimes (Qollab's JS projects) also define a CommonJS `module`.
+  root.FoundryLessons = lessons; root.FoundryPrimer = primer; root.FoundryGlossary = glossary;
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
