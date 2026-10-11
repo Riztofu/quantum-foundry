@@ -7,6 +7,22 @@ This effort is supported by Qollab & IonQ.
 🎬 **Demo video (2–3 min):** _add your public video link here_
 💻 **Source:** https://github.com/Riztofu/quantum-foundry
 
+> **Track: Quantum Unlocked.** We teach two of the track's hard topics, **quantum networking** (superdense coding: two classical bits through one qubit, powered by entanglement) and **quantum algorithms** (Deutsch and Bernstein–Vazirani: one query instead of many). Players build every piece themselves, starting from "what is a bit?". Every answer is **verified by Qiskit** and can be **run on IonQ** to compare with real-device noise.
+
+## ⏱ Judge's 60-second path
+
+1. Press **Run** → choose **IonQ Forte 1** (or **Built-in simulator**) in Select QPU. The game appears above the console.
+2. On the map, press **Bell demo** (a ready-made entangled pair) and close its short gate guide. Under Sample output, press **Run on … ↗**, choose **All 4 test inputs**, and **Submit**. All four inputs travel in **one job**, and the samples appear beside the ideal prediction.
+3. Back on the map, press **🧭 Start from zero** and drag the amplitude bar on page 2. That's how the game teaches from nothing.
+4. Open **01 · First Connection**, wire INPUT A → OUTPUT A, and press **Check circuit**. The Tests tab shows **Qiskit's** verdict: `Statevector` fidelity per case plus `Operator.equiv`.
+
+## Why it's different
+
+- **You build the machine, then reuse it.** Verified circuits become parts: your BellPrep and BellDecode blocks power the Quantum Courier, and your Swap routes qubits in Chapter II.
+- **Honest grading.** Qiskit checks the full quantum state and the full operation (up to one global phase), so a reversed CNOT or a wrong relative sign can't pass by luck. Shot noise never fails a correct circuit.
+- **Real hardware, inside Qollab's rules.** IonQ allows one job per Run, so the game packs several test inputs side by side into one circuit and splits the results back apart. Before a second run, it offers to save your progress.
+- **Zero-background on-ramp.** A five-page interactive primer, new words defined before use, a 26-term dictionary, and hints in three steps, written for ages 8 and up.
+
 ## How to run
 
 1. Press **Run** and pick a backend in **Select QPU**. The free **Built-in simulator** starts instantly. An **IonQ simulator** (Aria or Forte noise model) lets the in-game "Run on …" button sample your circuits on IonQ's cloud.
