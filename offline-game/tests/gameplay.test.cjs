@@ -366,3 +366,20 @@ test('other fixed experiment parts stay in place', async () => {
   await e.key('ArrowDown');
   const after = e.state().graph.nodes.find(n => n.id === 'h-before'); assert.deepEqual([after.x, after.y], [before.x, before.y]);
 });
+
+test('completing the last mission opens the finale with confetti and campaign stats', async () => {
+  const C = require('../source/core.js'), progress = Object.fromEntries(C.levels.filter(l => l.number && l.id !== 'oracle').map(l => [l.id, true]));
+  const project = { format: 'quantum-foundry-project', version: 3, current: 'oracle', lastView: 'map', modules: [], progress };
+  const e = createEnvironment({ saved: new Map([['quantum-foundry-offline-v3', JSON.stringify(project)]]) });
+  await e.open('oracle');
+  // Same reference build as the campaign test: H on A B C, X then H on D, the oracle, then H on A B C.
+  const solution = e.win.FoundryCore.solution('oracle'), placed = {};
+  for (const node of solution.nodes.filter(n => !n.locked)) placed[node.id] = await e.place(node.type, node.x, node.y);
+  for (const edge of solution.edges) await e.wire(placed[edge.from.node] || edge.from.node, placed[edge.to.node] || edge.to.node, edge.from.port, edge.to.port);
+  await e.get('check').click();
+  assert.equal(e.win.quantumFoundry.getStatus().passed, true);
+  assert.match(e.get('dialog-title').textContent, /Hooray/); assert.match(e.get('dialog-kicker').textContent, /CAMPAIGN COMPLETE · 16 \/ 16/);
+  assert.match(e.get('modal-root').textContent, /Foundry complete!/); assert.match(e.get('modal-root').textContent, /Bernstein–Vazirani/);
+  assert.equal(e.get('modal-root').querySelector('.confetti').querySelectorAll('i').length, 140);
+  await e.modalAction(3); assert.equal(e.get('campaign').hidden, false); // Campaign map
+});

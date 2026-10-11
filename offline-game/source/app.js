@@ -790,8 +790,36 @@
     closeModal(); const next = C.levels.find(l => l.number && !project.progress[l.id] && C.available(l, project.progress, modules()));
     if (next) openLevel(next.id); else openMap();
   }
+  // ── The finale: completing the last mission ───────────────────────────────
+  function finale() {
+    const done = C.levels.filter(l => l.number && project.progress[l.id]).length, best = Object.values(project.best).reduce((sum, b) => sum + b.count, 0);
+    const verdict = verdictNow(), runs = (project.ionqRuns || []).length;
+    const built = [['Superposition & interference', 'The Hidden Sign'], ['An entangled Bell pair', 'BellPrep'], ['Superdense coding', 'Quantum Courier'], ['Qubit routing', 'Across the Register'], ['GHZ entanglement', 'A Four-Way Link'], ['Uncomputation', 'Undo the Machine'], ['Phase kickback', 'Deutsch'], ['A full quantum algorithm', 'Bernstein–Vazirani']];
+    const body = `<div class="finale"><div class="finale-burst" aria-hidden="true">🎉</div><h3 class="finale-title">Foundry complete!</h3>
+      <p class="finale-lead">You started with a single wire and finished with a working quantum algorithm. Every circuit along the way was yours, and every one was verified.</p>
+      <div class="finale-stats"><div><b>${done} / ${totalMissions}</b>missions</div><div><b>${modules().length}</b>saved components</div><div><b>${best}</b>gates in your best builds</div><div><b>${runs}</b>IonQ run${runs === 1 ? '' : 's'}</div></div>
+      <ul class="finale-built">${built.map(([what, where]) => `<li><b>${esc(what)}</b><span>${esc(where)}</span></li>`).join('')}</ul>
+      ${verdict ? `<p class="grader-note qiskit">Final circuit confirmed by Qiskit ${esc(verdict.qiskit)}: ${esc(verdict.summary)}.</p>` : ''}
+      <p class="tiny">Keep exploring: Sandbox goes up to six qubits, your saved blocks stay available, and every mission can be replayed for a smaller design.</p></div>`;
+    modal('Hooray — you did it!', body, [
+      { label: 'Keep building', run: closeModal },
+      { label: '💾 Save progress', run: backup },
+      { label: 'Open Sandbox', run: () => { closeModal(); openLevel('sandbox'); } },
+      { label: 'Campaign map', primary: true, run: () => { closeModal(); openMap(); } }
+    ], true);
+    $('dialog-kicker').textContent = 'CAMPAIGN COMPLETE · ' + done + ' / ' + totalMissions;
+    confetti();
+    [0, 450, 900].forEach(delay => setTimeout(() => audio.chime(), delay));
+  }
+  function confetti() {
+    const backdrop = $('modal-root').querySelector('.modal-backdrop'); if (!backdrop) return;
+    const colors = ['#eaa368', '#81ccd0', '#a9ca90', '#efa298', '#e9d58a', '#b9a3e3'], rand = (a, b) => a + Math.random() * (b - a);
+    const pieces = Array.from({ length: 140 }, (_, i) => `<i style="left:${rand(0, 100).toFixed(1)}%;background:${colors[i % colors.length]};width:${rand(6, 11).toFixed(0)}px;height:${rand(9, 16).toFixed(0)}px;animation-delay:${rand(0, 2.4).toFixed(2)}s;animation-duration:${rand(2.8, 5.2).toFixed(2)}s;--spin:${rand(-900, 900).toFixed(0)}deg;--drift:${rand(-90, 90).toFixed(0)}px${i % 3 ? '' : ';border-radius:50%'}"></i>`).join('');
+    try { const layer = document.createElement('div'); layer.className = 'confetti'; layer.setAttribute('aria-hidden', 'true'); layer.innerHTML = pieces; backdrop.appendChild(layer); } catch { /* celebration only */ }
+  }
   function completion() {
     const final = level.id === 'oracle', courier = level.id === 'courier';
+    if (final) { finale(); return; }
     const body = `<p>${final ? 'All eight hidden registers recovered with one query each. You built a complete quantum algorithm from the operations you learned.' : courier ? 'Every message arrived correctly. Your saved circuits form a working communication device. Chapter II is now available: routing, registers, and algorithms.' : 'Your circuit satisfies every required test. ' + esc(level.reward) + ' unlocked.'}</p>${verdictNow() ? `<p class="grader-note qiskit">Confirmed by Qiskit ${esc(verdictNow().qiskit)}: ${esc(verdictNow().summary)}.</p>` : ''}<div class="completion-metrics"><div><b>${result.tests.length}</b>tests passed</div><div><b>${result.count}</b>gates, hardest case</div><div><b>${result.depth}</b>maximum depth</div></div>${level.targetCost ? `<p class="tiny">Compact design benchmark: ${level.targetCost} gates. Best verified build: ${project.best[level.id].count} gates. Benchmarks are optional; every correct circuit passes.</p>` : ''}${level.kind ? `<p>Package this circuit as <b>${esc(level.kind)}</b> to use it as a part in later assignments.</p><label for="component-name">Component name<input id="component-name" maxlength="32" value="${esc(level.kind)}"></label><p id="component-error" class="error"></p>` : ''}${courier ? '<p>The protocol uses one transmitted qubit and a previously shared entangled pair. Your next device will route states through a three-qubit register.</p>' : ''}${final ? '<p>Explore up to six qubits in Sandbox, combine your saved blocks, or export a selected circuit to Qiskit. Your entire campaign remains available for replay.</p>' : ''}`;
     modal(final ? 'The Hidden Register: complete' : courier ? 'Chapter I complete' : 'Circuit verified', body, [
       { label: 'Keep building', run: closeModal },
