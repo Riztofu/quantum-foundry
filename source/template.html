@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="An offline quantum construction game. Learn a gate, build a circuit, and turn your solution into a reusable part.">
+  <title>Quantum Foundry — Circuit Workshop</title>
+  <style>/*__STYLE__*/</style>
+</head>
+<body>
+  <div id="app">
+    <header class="toolbar">
+      <button class="map-button" id="map-button" title="Assignment map"><span aria-hidden="true">▦</span> Map</button>
+      <span id="assignment-number" class="mission-number">01</span>
+      <div class="mission-header"><strong id="mission-title">First Connection</strong><span id="chapter-label">Foundations</span></div>
+      <div class="tool-group editor-tools" aria-label="Editor tools">
+        <button id="select-tool" class="icon-button active" title="Select / move (V)" aria-label="Select tool">↖</button>
+        <button id="wire-tool" class="icon-button" title="Wire (W)" aria-label="Wire tool">⌁</button>
+        <span class="tool-divider"></span>
+        <button id="undo" class="icon-button" title="Undo (⌘ Z)" aria-label="Undo">↶</button>
+        <button id="redo" class="icon-button" title="Redo (⌘ Shift Z)" aria-label="Redo">↷</button>
+        <button id="fit" class="text-button" title="Fit circuit (F)">Fit</button>
+      </div>
+      <div class="toolbar-spacer"></div>
+      <button id="assignment" class="assignment-button" title="Goal, explanation, and guided experiment">Assignment <span aria-hidden="true">▤</span></button>
+      <button id="music-toggle" class="icon-button music-toggle" aria-label="Start music" aria-pressed="false" title="Original ambient music">♫</button>
+      <div class="menu-anchor">
+        <button id="menu-button" class="icon-button" aria-label="Game menu" aria-expanded="false" aria-controls="game-menu">≡</button>
+        <div id="game-menu" class="game-menu" hidden>
+          <span class="eyebrow">PROJECT</span>
+          <button id="backup">Download backup <span>JSON ↓</span></button>
+          <button id="import">Import backup <span>JSON ↑</span></button>
+          <button id="export">Export to Qiskit <span>Python ↓</span></button>
+          <hr>
+          <span class="eyebrow">BACKGROUND MUSIC</span>
+          <label class="audio-setting" for="music-track">Track<select id="music-track">
+            <optgroup label="Original scores"><option value="copper">Copper Signals</option><option value="night">Night Shift</option></optgroup>
+            <optgroup label="Kevin MacLeod"><option value="monkeys">Monkeys Spinning Monkeys</option><option value="duck">Fluffing a Duck</option><option value="carefree">Carefree</option><option value="sneaky">Sneaky Snitch</option><option value="cipher">Cipher</option><option value="weasel">Scheming Weasel (faster version)</option><option value="investigations">Investigations</option><option value="forecast">Local Forecast</option><option value="merry">Merry Go</option><option value="bee">Happy Bee</option></optgroup>
+          </select></label>
+          <label class="audio-setting" for="music-volume">Volume <span id="music-volume-label">22%</span><input id="music-volume" type="range" min="0" max="60" step="1" value="22"></label>
+          <span id="music-status" class="music-status">Music starts when you enter a mission.</span>
+          <button id="music-credits">Music credits <span>♪</span></button>
+          <hr>
+          <span class="eyebrow">REAL QUANTUM HARDWARE</span>
+          <button id="qpu-run" disabled>Run current input on IonQ <span>QPU</span></button>
+          <span id="qpu-status" class="music-status">Hardware runs need the optional Quantum Foundry backend.</span>
+          <button id="credits">Credits</button>
+          <hr>
+          <button id="reset-circuit">Reset this circuit</button>
+          <button id="help">Controls &amp; saving <span>?</span></button>
+          <div id="save-status" class="save-status">Saved locally</div>
+        </div>
+      </div>
+    </header>
+    <div id="workbench" class="workbench">
+      <aside class="controls" aria-label="Simulation controls">
+        <div class="rail-heading">TEST CONTROLLER</div>
+        <section class="control-section"><h2 id="input-heading">INPUT</h2><div id="input-buttons" class="input-buttons"></div><select id="input-select" aria-label="Test input" hidden></select><p class="tiny" id="bit-order">A = q0</p></section>
+        <section class="control-section execution">
+          <h2>EXECUTION</h2>
+          <div class="button-row"><button id="play" class="secondary">▶ Play</button><button id="step" class="secondary">Step ▸</button></div>
+          <div class="button-row small-row"><button id="rewind" class="text-button" title="One operation back">◂ Back</button><button id="reset-execution" class="text-button">Restart</button></div>
+          <div class="step-status"><span id="step-label">Input state</span><span id="step-count">0 / 0</span></div>
+        </section>
+        <section class="control-section compact-readout">
+          <h2>PROBABILITIES <span title="Probabilities at the currently displayed execution step">i</span></h2>
+          <div id="readout" class="readout"></div>
+          <button id="run" class="secondary wide sample-button">Sample output</button>
+        </section>
+        <div class="controls-bottom"><button id="check" class="primary wide">Check circuit</button><button id="hint" class="text-button wide">Need a hint?</button><span class="simulator-tag"><span class="status-dot"></span> IDEAL SIMULATION</span></div>
+      </aside>
+      <main class="workspace">
+        <div class="canvas-bar"><p id="contract-text"></p><div class="canvas-metrics"><label id="register-control" hidden>Register <select id="register-size" aria-label="Sandbox register size"><option value="1">1 qubit</option><option value="2" selected>2 qubits</option><option value="3">3 qubits</option><option value="4">4 qubits</option><option value="5">5 qubits</option><option value="6">6 qubits</option></select></label><span id="gate-cost">0 gates</span><span id="depth-cost">depth 0</span><button id="toggle-parts" class="text-button" aria-expanded="true">Parts</button></div></div>
+        <div class="canvas-wrap" id="canvas-wrap">
+          <svg id="canvas" role="group" aria-label="Circuit editor. Choose a gate from Parts. Click an output pin, then an input pin to connect them." tabindex="0"><defs><pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 0 2 V 0 H 2" fill="none" stroke="#4a5157" stroke-width="0.8"/></pattern></defs><rect width="100%" height="100%" fill="url(#grid)"/><g id="world"></g></svg>
+          <div id="canvas-mode" class="canvas-mode">Select · click a pin to wire</div>
+          <div class="canvas-help" id="canvas-help">Connect the orange pins</div>
+          <div class="zoom-controls"><button id="zoom-out" aria-label="Zoom out">−</button><span id="zoom-label">100%</span><button id="zoom-in" aria-label="Zoom in">+</button></div>
+          <div id="graph-error" class="graph-error" hidden></div>
+        </div>
+        <div id="dock-resizer" class="dock-resizer" title="Drag to resize the test bench" role="separator" aria-label="Test bench height" aria-orientation="horizontal" tabindex="0"></div>
+        <section class="dock" id="dock">
+          <div class="dock-tabs" role="tablist" aria-label="Test bench">
+            <button data-tab="tests" id="tab-tests" role="tab" aria-selected="true" class="active">Tests</button>
+            <button data-tab="state" id="tab-state" role="tab" aria-selected="false">State</button>
+            <button data-tab="measurements" id="tab-measurements" role="tab" aria-selected="false">Measurements</button>
+            <button data-tab="selected" id="tab-selected" role="tab" aria-selected="false">Selected part</button>
+            <span id="test-summary" class="test-summary">Untested</span>
+            <button id="toggle-dock" class="dock-toggle" aria-label="Collapse test bench" aria-expanded="true">▾</button>
+          </div>
+          <div id="measurement-settings" class="measurement-settings" hidden><span>Each shot prepares a fresh copy.</span><label for="shots">Shots</label><select id="shots"><option value="128">128</option><option value="512" selected>512</option><option value="1024">1024</option></select></div>
+          <div class="dock-content" id="dock-content" role="tabpanel" aria-labelledby="tab-tests"></div>
+          <span class="dock-note" id="dock-note">Bitstrings read B A</span>
+        </section>
+      </main>
+      <aside class="parts" id="parts" aria-label="Component tray"><div class="parts-heading"><h2>PARTS</h2><span>click, then place</span></div><div id="palette"></div><div class="parts-footer"><button id="save-component" class="secondary wide">Save block</button><button id="workshop" class="text-button wide">My components ↗</button></div></aside>
+    </div>
+    <footer class="statusbar"><span id="status-text">Choose an assignment.</span><span>V select · W wire · Del remove · ⌘ Z undo · F fit</span><span id="campaign-status">0 / 16 complete</span></footer>
+  </div>
+  <section id="campaign" class="campaign" aria-label="Assignment map">
+    <div class="map-top"><div class="map-brand"><svg class="foundry-mark" viewBox="0 0 36 36" aria-hidden="true"><path d="M 1 18 H 8 M 28 18 H 35 M 18 1 V 8 M 18 28 V 35"/><rect x="8" y="8" width="20" height="20"/><path d="M 13 13 H 23 V 23 H 13 Z M 20 20 L 25 25"/></svg><div><h1>QUANTUM FOUNDRY</h1><span>Build a quantum machine, one circuit at a time</span></div></div><div class="map-actions"><button id="map-music" class="secondary music-toggle" aria-pressed="false">♫ Music</button><button id="map-back" class="secondary">Return to circuit</button><button id="demo" class="secondary">Bell demo</button><button id="sandbox" class="secondary">Sandbox ↗</button></div></div>
+    <div class="map-instructions"><span class="eyebrow">APPRENTICE PROGRAM</span><p>Wire → gates → saved components → registers → algorithms.</p><div class="map-legend"><span class="legend-available">Available</span><span class="legend-complete">Complete</span><span class="legend-locked">Locked</span></div></div>
+    <nav id="map-chapters" class="map-chapters" aria-label="Campaign chapters"></nav>
+    <div class="map-scroll"><div class="map-board" id="map-board"><svg id="map-links" viewBox="0 0 1130 530" preserveAspectRatio="none" aria-hidden="true"></svg><div id="map-nodes"></div></div></div>
+    <div class="map-bottom"><span id="map-progress">0 / 16 assignments complete</span><button id="map-help" class="text-button">Controls &amp; saving</button><span>Local simulator · offline</span></div>
+  </section>
+  <audio id="music-player" preload="none" loop></audio>
+  <div id="modal-root"></div><div id="toast" class="toast" role="status" aria-live="polite" hidden></div><input id="import-file" type="file" accept=".json,application/json" hidden>
+  <noscript>This game requires JavaScript. Open index.html in Safari or Chrome with JavaScript enabled.</noscript>
+  <script>/*__CORE__*/</script>
+  <script>/*__LESSONS__*/</script>
+  <script>/*__AUDIO__*/</script>
+  <script>/*__APP__*/</script>
+</body>
+</html>
