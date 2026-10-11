@@ -316,3 +316,24 @@ test('credits show exactly the requested names and music credits list all ten re
   assert.equal(e.get('modal-root').querySelector('.music-credit-list').querySelectorAll('li').length, 10);
   assert.match(e.get('modal-root').textContent, /Creative Commons Attribution 4.0/);
 });
+
+test('the primer widgets demonstrate squaring, sampling, and interference interactively', async () => {
+  const e = createEnvironment(); await e.get('primer-button').click();
+  await e.query('[data-primer-page="1"]').click();
+  assert.ok(e.get('pw-amp-view')); assert.match(e.get('pw-amp-view').textContent, /50%/);
+  e.get('pw-lean').value = '0'; await e.get('pw-lean').dispatch('input');
+  assert.match(e.get('pw-amp-view').textContent, /chance of reading 1 = 0\.00/);
+  e.get('pw-lean').value = '100'; await e.get('pw-lean').dispatch('input');
+  assert.match(e.get('pw-amp-view').textContent, /100%/);
+  await e.query('[data-primer-page="2"]').click();
+  await e.query('[data-primer-measure="100"]').click();
+  assert.match(e.get('pw-tally-view').textContent, /Shots so far:/); assert.match(e.get('pw-tally-view').textContent, /100/);
+  await e.query('[data-primer-measure="1"]').click();
+  assert.match(e.get('pw-tally-view').textContent, /101/);
+  await e.query('[data-primer-tally-reset]').click();
+  assert.match(e.get('pw-tally-view').textContent, /No measurements yet/);
+  await e.query('[data-primer-page="3"]').click();
+  assert.match(e.get('pw-interf-view').textContent, /certain — the paths reinforced/);
+  await e.query('[data-primer-flip]').click();
+  assert.match(e.get('pw-interf-view').textContent, /impossible — the paths cancelled/);
+});

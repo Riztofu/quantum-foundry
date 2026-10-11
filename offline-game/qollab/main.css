@@ -71,6 +71,38 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
 .ionq-bars{display:flex;flex-direction:column;gap:2px}.ionq-bars div{height:5px;min-width:1px}
 .modal .ionq-check{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;grid-column:1/-1;margin:0}.modal .ionq-check input{width:auto;flex:0 0 auto;margin:0;padding:0}
 .modal .ionq-paid{margin:12px 0 0}
+.primer-widget{background:#10161d;border:1px solid #2c3842;border-radius:9px;padding:13px 15px;margin:14px 0 4px}
+.pw-controls{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:11px}
+.pw-label{display:flex;align-items:center;gap:8px;font-size:11px;color:#9caab4}
+.pw-label input[type=range]{width:190px;accent-color:#63cdd6}
+.pw-check input{accent-color:#f7b258}
+.pw-row-bar{display:grid;grid-template-columns:52px 52px minmax(90px,1fr) 46px;align-items:center;gap:10px;margin:7px 0;font-family:ui-monospace,monospace;font-size:11px}
+
+.pw-ket{color:#e6ecef}
+.pw-num{text-align:right}
+.pw-pct{color:#9caab4;text-align:right}
+.pw-track{height:13px;background:#171f27;border:1px solid #33414d;position:relative}
+.pw-signed:before{content:"";position:absolute;left:50%;top:0;height:100%;width:1px;background:#82939f}
+.pw-signed .pw-bar{position:absolute;left:50%;height:100%;background:#63cdd6}
+.pw-signed .pw-bar.pw-neg-bar{left:auto;right:50%;background:#f7b258}
+.pw-track .pw-green{height:100%;background:#99d487}
+.pw-formula{font-family:ui-monospace,monospace;font-size:10.5px;color:#9caab4;margin:9px 0 2px;line-height:1.6}
+.pw-formula b{color:#63cdd6}
+.pw-caption{font-size:10.5px;color:#7d8c96;line-height:1.6;margin:10px 0 0}
+.pw-svg{width:100%;height:auto;display:block}
+.pws-head{fill:#63cdd6;font:700 10px ui-monospace,monospace;letter-spacing:1.5px}
+.pws-slot{fill:#1b2530;stroke:#3a4a57;stroke-width:1.5}
+.pws-knob{fill:#99d487}
+.pws-gate{fill:#28545f;stroke:#5395a4;stroke-width:1.5}
+.pws-pin{fill:#18242b;stroke:#f7b258;stroke-width:2}
+.pws-wire{stroke:#f7b258;stroke-width:3;stroke-linecap:round}
+.pws-big{fill:#9caab4;font:700 17px ui-monospace,monospace}
+.pws-on{fill:#e9fbff}
+.pws-cap{fill:#8ba0ad;font:10px ui-sans-serif,system-ui}
+.pws-trackbg{fill:#171f27;stroke:#33414d}
+.pws-fill{fill:#63cdd6}
+.pws-fill2{fill:#63cdd6;opacity:.55}
+.pw-row-tally{display:grid;grid-template-columns:52px minmax(90px,1fr) 46px;align-items:center;gap:10px;margin:7px 0;font-family:ui-monospace,monospace;font-size:11px}
 
 /* ── Qollab: the page is an embedded frame above the console ── */
 html,body{height:auto;overflow:visible;background:var(--bg)}

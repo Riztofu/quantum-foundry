@@ -79,6 +79,38 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
 .ionq-bars{display:flex;flex-direction:column;gap:2px}.ionq-bars div{height:5px;min-width:1px}
 .modal .ionq-check{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;grid-column:1/-1;margin:0}.modal .ionq-check input{width:auto;flex:0 0 auto;margin:0;padding:0}
 .modal .ionq-paid{margin:12px 0 0}
+.primer-widget{background:#10161d;border:1px solid #2c3842;border-radius:9px;padding:13px 15px;margin:14px 0 4px}
+.pw-controls{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:11px}
+.pw-label{display:flex;align-items:center;gap:8px;font-size:11px;color:#9caab4}
+.pw-label input[type=range]{width:190px;accent-color:#63cdd6}
+.pw-check input{accent-color:#f7b258}
+.pw-row-bar{display:grid;grid-template-columns:52px 52px minmax(90px,1fr) 46px;align-items:center;gap:10px;margin:7px 0;font-family:ui-monospace,monospace;font-size:11px}
+
+.pw-ket{color:#e6ecef}
+.pw-num{text-align:right}
+.pw-pct{color:#9caab4;text-align:right}
+.pw-track{height:13px;background:#171f27;border:1px solid #33414d;position:relative}
+.pw-signed:before{content:"";position:absolute;left:50%;top:0;height:100%;width:1px;background:#82939f}
+.pw-signed .pw-bar{position:absolute;left:50%;height:100%;background:#63cdd6}
+.pw-signed .pw-bar.pw-neg-bar{left:auto;right:50%;background:#f7b258}
+.pw-track .pw-green{height:100%;background:#99d487}
+.pw-formula{font-family:ui-monospace,monospace;font-size:10.5px;color:#9caab4;margin:9px 0 2px;line-height:1.6}
+.pw-formula b{color:#63cdd6}
+.pw-caption{font-size:10.5px;color:#7d8c96;line-height:1.6;margin:10px 0 0}
+.pw-svg{width:100%;height:auto;display:block}
+.pws-head{fill:#63cdd6;font:700 10px ui-monospace,monospace;letter-spacing:1.5px}
+.pws-slot{fill:#1b2530;stroke:#3a4a57;stroke-width:1.5}
+.pws-knob{fill:#99d487}
+.pws-gate{fill:#28545f;stroke:#5395a4;stroke-width:1.5}
+.pws-pin{fill:#18242b;stroke:#f7b258;stroke-width:2}
+.pws-wire{stroke:#f7b258;stroke-width:3;stroke-linecap:round}
+.pws-big{fill:#9caab4;font:700 17px ui-monospace,monospace}
+.pws-on{fill:#e9fbff}
+.pws-cap{fill:#8ba0ad;font:10px ui-sans-serif,system-ui}
+.pws-trackbg{fill:#171f27;stroke:#33414d}
+.pws-fill{fill:#63cdd6}
+.pws-fill2{fill:#63cdd6;opacity:.55}
+.pw-row-tally{display:grid;grid-template-columns:52px minmax(90px,1fr) 46px;align-items:center;gap:10px;margin:7px 0;font-family:ui-monospace,monospace;font-size:11px}
 </style>
 </head>
 <body>
@@ -644,17 +676,20 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
     { title: 'Amplitudes: the numbers underneath', body: [
       'Here is the one piece of math the whole game runs on. A qubit between readings keeps a number for EACH possible answer. That number is called the amplitude of the answer. If a qubit has amplitude 1 for |0⟩ and amplitude 0 for |1⟩, it is plainly 0. If both amplitudes are 0.707, it leans equally toward both.',
       'Amplitudes turn into chances by a single rule: the probability of reading an answer is that answer’s amplitude multiplied by itself. 0.707 × 0.707 ≈ 0.5, so an amplitude of 0.707 means a 50% chance. Amplitude 1 means certainty. Amplitude 0 means never.',
-      'And now the twist that makes quantum different from dice: an amplitude can be NEGATIVE. −0.707 also squares to 50%, so a minus sign is invisible when you read the qubit… but the sign is still there, and later steps can make it matter. Hold that thought — it becomes the punchline of mission 4.'
+      'And now the twist that makes quantum different from dice: an amplitude can be NEGATIVE. −0.707 also squares to 50%, so a minus sign is invisible when you read the qubit… but the sign is still there, and later steps can make it matter. Hold that thought — it becomes the punchline of mission 4.',
+      'Now stop reading and drag. The slider below sets the lean; the bars are the two amplitudes; the percentages follow the squaring rule live. Then tick the box to make an amplitude negative — and watch the chances refuse to care.'
     ]},
     { title: 'Measurement: asking the question', body: [
       'Reading a qubit is called measurement. Measurement forces the qubit to commit: it answers 0 or 1, at random, with the chances given by the squared amplitudes. After it answers, the in-between lean is gone — the qubit now simply IS the answer it gave.',
       'Because measuring disturbs the qubit, you cannot peek at amplitudes directly on real hardware. You can only prepare a fresh qubit, measure it once, and repeat many times to see the pattern. That is exactly what the game’s “Sample output” button does: every shot builds your circuit again from scratch and measures once.',
-      'This game is also a friendly training ground: its State panel shows you the exact amplitudes at every step, like an x-ray real hardware can never give you. The panel always tells you which view you are getting.'
+      'This game is also a friendly training ground: its State panel shows you the exact amplitudes at every step, like an x-ray real hardware can never give you. The panel always tells you which view you are getting.',
+      'Try it below. Every press prepares a fresh 50/50 qubit and asks it once. Single answers are always plain 0s and 1s — only the growing tally reveals the lean.'
     ]},
     { title: 'Interference: why the minus sign is the superpower', body: [
       'If qubits were just “random until read”, they would be fancy coins and nobody would build computers out of them. The reason they are more: amplitudes ADD. When two paths lead to the same answer, their amplitudes combine — and a +0.5 meeting a −0.5 cancels to zero. The answer becomes impossible. That cancellation is called interference.',
       'A quantum program is choreography: arrange the gates so that amplitudes pointing at WRONG answers cancel each other out, and amplitudes pointing at the RIGHT answer pile up. Then a single measurement reads off the right answer with high probability.',
-      'That is the honest version of “quantum computers try everything at once”. They do explore alternatives together — but a naive read-out would just give you a random alternative. The skill, and this game, is in making the alternatives interfere so the readout is the one you wanted.'
+      'That is the honest version of “quantum computers try everything at once”. They do explore alternatives together — but a naive read-out would just give you a random alternative. The skill, and this game, is in making the alternatives interfere so the readout is the one you wanted.',
+      'See for yourself below: two paths of equal strength arrive at the answer “0”. Flip one sign and a guaranteed answer becomes an impossible one. That switch is the entire difference between quantum machinery and dice.'
     ]},
     { title: 'How the workshop works', body: [
       'You build circuits: qubits flow along amber wires from INPUT terminals on the left to OUTPUT terminals on the right, passing through gates — small machines that change amplitudes in precise, reversible ways. Pick a part from Parts, click the board to place it, click an output pin then an input pin to wire them. Every pin needs a connection.',
@@ -1393,12 +1428,12 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
     const kinds = C.allowedKinds(level);
     return modules().filter(m => m.qubits <= level.qubits && (!kinds || kinds.includes(m.kind)));
   }
-  const descriptions = { X: ['Bit flip', '1Q'], H: ['Hadamard', '1Q'], Z: ['Phase flip', '1Q'], CX: ['CNOT', '2Q · C / T'], SWAP: ['Exchange', '2Q · 3 gates'] };
+  const descriptions = { X: ['Bit flip', '1Q', 'swaps 0 and 1'], H: ['Hadamard', '1Q', 'makes two equal paths from 0'], Z: ['Phase flip', '1Q', 'changes a hidden sign on the 1 path'], CX: ['CNOT', '2Q · C / T', 'flips the target only if the control is 1'], SWAP: ['Exchange', '2Q · 3 gates', 'exchanges the states of two qubits'] };
   function renderPalette() {
     let html = '';
     for (const [title, types] of [['1 QUBIT', level.parts.filter(t => !['CX', 'SWAP'].includes(t))], ['2 QUBITS', level.parts.filter(t => ['CX', 'SWAP'].includes(t) && level.qubits >= 2)]]) if (types.length) {
       html += `<div class="palette-group"><h3>${title}</h3>`;
-      html += types.map(t => `<button class="part-tile${placement?.type === t ? ' active' : ''}" data-part="${t}" title="${descriptions[t][0]} · ${t === 'CX' ? 'upper control, lower target · shortcut C' : 'shortcut ' + (t === 'SWAP' ? 'S' : t)}"><span class="part-glyph">${t === 'CX' ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M 12 4 V 20 M 7 17 H 17" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="12" cy="5" r="2.5" fill="currentColor"/><circle cx="12" cy="17" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>' : t === 'SWAP' ? '⇄' : t}</span><span class="part-copy"><strong>${descriptions[t][0]}</strong><small>${descriptions[t][1]}</small></span></button>`).join('') + '</div>';
+      html += types.map(t => `<button class="part-tile${placement?.type === t ? ' active' : ''}" data-part="${t}" title="${descriptions[t][0]}: ${descriptions[t][2]} · ${t === 'CX' ? 'upper control, lower target · shortcut C' : 'shortcut ' + (t === 'SWAP' ? 'S' : t)}"><span class="part-glyph">${t === 'CX' ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M 12 4 V 20 M 7 17 H 17" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="12" cy="5" r="2.5" fill="currentColor"/><circle cx="12" cy="17" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>' : t === 'SWAP' ? '⇄' : t}</span><span class="part-copy"><strong>${descriptions[t][0]}</strong><small>${descriptions[t][1]}</small></span></button>`).join('') + '</div>';
     }
     const custom = paletteModules();
     if (custom.length) html += `<div class="palette-group custom-parts"><h3>YOUR BLOCKS</h3>${custom.map(m => `<button class="part-tile${placement?.moduleId === m.id ? ' active' : ''}" data-module="${esc(m.id)}" title="${esc(m.name)} — ${m.gates.length} primitive gates"><span class="part-glyph module">${m.qubits}Q</span><span class="part-copy"><strong>${esc(m.name)}</strong><small>${m.gates.length} gates · v${m.version || 1}</small></span></button>`).join('')}</div>`;
@@ -1437,7 +1472,7 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
       else {
         const m = node.type === 'MODULE' ? modules().find(m => m.id === node.moduleId) : null;
         const title = m ? m.name : node.label || node.type;
-        const explanation = {X:'X exchanges |0⟩ and |1⟩ without measuring. Two X gates restore the input.',H:'H creates |+⟩ from |0⟩. A second H can undo it through interference.',Z:'Z reverses the |1⟩ amplitude’s sign. Probabilities can stay unchanged until a later gate reveals the phase.',SWAP:'Exchanges the states of two physical qubits. It expands to three CNOTs; crossing wires alone cannot perform this operation.',ORACLE:'One fixed reversible oracle query. Its truth table or hidden secret is selected by the test controller; the same player circuit must work for every case.',CX:'C = upper control; T = lower target. The target flips when the control is 1. Neither qubit is measured.',ENCODE:'Message cd: Z on A when d=1, then X on A when c=1.',TRANSFER:'Alice sends A to Bob, who already holds B from the shared pair.',INPUT:'Supplies the selected test state. For Bell inputs, A and B are one joint state.',OUTPUT:'End of this physical qubit’s path. Read joint bitstrings from the highest qubit index down to A = q0.'}[node.type];
+        const explanation = {X:'X flips 0 to 1 and 1 to 0. It does not measure the qubit. Two X gates undo each other.',H:'H gives a starting 0 two equal quantum paths. A readout has equal chances; another H brings a starting 0 back.',Z:'Z changes the sign on the 1 path. A later gate can make that change affect the readout.',SWAP:'Exchanges the states of two paths. It uses three CNOT gates; crossing wires alone cannot do this.',ORACLE:'One hidden rule is selected for each test. Your circuit must work for every selected rule.',CX:'CNOT checks the upper control without measuring it. If control is 1, the lower target flips; if control is 0, it stays. The control never changes.',ENCODE:'For message cd, Alice changes A using its two message bits.',TRANSFER:'Alice sends A to Bob, who already has B from the shared pair.',INPUT:'Starts the circuit with the selected bits. For shared-pair inputs, A and B start together.',OUTPUT:'End of this path. Read bitstrings from the highest qubit down to A = q0.'}[node.type];
         $('dock-content').innerHTML = `<div class="inspector"><div><h3>${esc(title)}</h3><p>${C.arity(node, modules())} qubit${C.arity(node, modules()) === 1 ? '' : 's'} · ${node.locked ? 'fixed assignment part' : 'moveable component'}${m ? ' · ' + m.gates.length + ' primitive gates' : ''}</p><p>${m ? m.kind === 'BellPrep' ? 'Verified preparation from |00⟩. The input assumption is part of its contract.' : 'Saved circuit: ' + esc(m.kind) : esc(explanation || 'Connections define the operation. Position affects the drawing only.')}</p>${m ? `<button class="secondary" data-inspect="${esc(m.id)}">Inspect inside →</button>` : ''}${!node.locked ? ' <button class="text-button" data-action="duplicate-selected">Duplicate</button> <button class="text-button" data-action="delete-selected">Delete part</button>' : ''}</div></div>`;
       }
     }
@@ -1509,12 +1544,39 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
     modal('Foundry dictionary', '<p class="primer-intro">Every term the game uses, in plain words. Missions always introduce a word before they rely on it — this page is for looking things up later.</p><dl class="glossary">' + window.FoundryGlossary.map(([t, d]) => `<dt>${esc(t)}</dt><dd>${esc(d)}</dd>`).join('') + '</dl>', [{ label: 'Close', primary: true, run: closeModal }], true);
     $('dialog-kicker').textContent = 'EVERY TERM · NO JARGON';
   }
+  // Interactive teaching widgets for the primer. Pure DOM + the squaring rule;
+  // the interference numbers are the real ones from the H–Z–H circuit.
+  let pwTally = [0, 0], pwLast = null, pwFlipped = false;
+  const pwAmpRow = (label, a, color) => `<div class="pw-row-bar"><span class="pw-ket">|${label}⟩</span><span class="pw-num" style="color:${a < -1e-9 ? '#f7b258' : color || '#63cdd6'}">${(a < -1e-9 ? '−' : '+') + Math.abs(a).toFixed(2)}</span><div class="pw-track pw-signed"><div class="pw-bar${a < -1e-9 ? ' pw-neg-bar' : ''}" style="width:${Math.abs(a) * 50}%"></div></div><span class="pw-pct">${(a * a * 100).toFixed(0)}%</span></div>`;
+  function ampWidgetBody() {
+    const slider = $('pw-lean'), negBox = $('pw-neg');
+    const lean = slider ? Number(slider.value) : 50, angle = lean / 100 * Math.PI / 2;
+    const a0 = Math.cos(angle), a1 = Math.sin(angle) * (negBox && negBox.checked ? -1 : 1);
+    return pwAmpRow('0', a0) + pwAmpRow('1', a1) + `<p class="pw-formula">chance of reading 1 = ${(a1 < 0 ? '(−' : '') + Math.abs(a1).toFixed(2) + (a1 < 0 ? ')' : '')} × ${(a1 < 0 ? '(−' : '') + Math.abs(a1).toFixed(2) + (a1 < 0 ? ')' : '')} = ${(a1 * a1).toFixed(2)} → <b>${(a1 * a1 * 100).toFixed(0)}%</b>${negBox && negBox.checked ? ' · the minus sign changed the state, not the chances' : ''}</p>`;
+  }
+  function tallyWidgetBody() {
+    const total = pwTally[0] + pwTally[1];
+    const bar = i => `<div class="pw-row-tally"><span class="pw-ket">${i}</span><div class="pw-track"><div class="pw-bar pw-green" style="width:${total ? pwTally[i] / total * 100 : 0}%"></div></div><span class="pw-pct">${pwTally[i]}</span></div>`;
+    return `<p class="pw-formula">${total ? 'Shots so far: <b>' + total + '</b> · last answer: <b>' + pwLast + '</b> · each press prepared a FRESH qubit and asked once' : 'The qubit below leans 50/50. No measurements yet — press a button and force it to answer.'}</p>` + bar(0) + bar(1);
+  }
+  function interfWidgetBody() {
+    const b = pwFlipped ? -0.5 : 0.5, sum = 0.5 + b;
+    return pwAmpRow('path 1', 0.5, '#9caab4').replace('|path 1⟩', 'path 1') + pwAmpRow('path 2', b, '#9caab4').replace('|path 2⟩', 'path 2') + pwAmpRow('added', sum).replace('|added⟩', 'together') + `<p class="pw-formula">(0.50 ${pwFlipped ? '−' : '+'} 0.50)² = ${(sum * sum).toFixed(2)} → the answer "0" is ${pwFlipped ? '<b>impossible — the paths cancelled</b>' : '<b>certain — the paths reinforced</b>'}. These are the real numbers inside mission 4’s H–Z–H circuit.</p>`;
+  }
+  function primerWidget(page) {
+    if (page === 0) return `<div class="primer-widget"><svg viewBox="0 0 620 130" class="pw-svg" aria-label="A bit is a switch with one position; a qubit holds a lean toward both answers"><text x="70" y="22" class="pws-head">BIT</text><rect x="20" y="34" width="100" height="34" rx="17" class="pws-slot"/><circle cx="103" cy="51" r="13" class="pws-knob"/><text x="38" y="56" class="pws-big">0</text><text x="99" y="56" class="pws-big pws-on">1</text><text x="20" y="94" class="pws-cap">always exactly 0 or 1 —</text><text x="20" y="110" class="pws-cap">nothing in between</text><text x="330" y="22" class="pws-head">QUBIT (between readings)</text><text x="300" y="56" class="pws-big">|0⟩</text><rect x="340" y="40" width="180" height="16" class="pws-trackbg"/><rect x="340" y="40" width="126" height="16" class="pws-fill"/><text x="528" y="54" class="pws-cap">lean 70%</text><text x="300" y="86" class="pws-big">|1⟩</text><rect x="340" y="70" width="180" height="16" class="pws-trackbg"/><rect x="340" y="70" width="54" height="16" class="pws-fill2"/><text x="528" y="84" class="pws-cap">lean 30%</text><text x="300" y="112" class="pws-cap">leans toward both at once — but when read, answers plainly 0 or 1</text></svg></div>`;
+    if (page === 1) return `<div class="primer-widget"><div class="pw-controls"><label class="pw-label">Drag the lean <input id="pw-lean" type="range" min="0" max="100" value="50" data-primer-range aria-label="Lean between 0 and 1"></label><label class="pw-label pw-check"><input id="pw-neg" type="checkbox" data-primer-neg> make the |1⟩ amplitude negative</label></div><div id="pw-amp-view">${ampWidgetBody()}</div><p class="pw-caption">Left bars: the amplitudes (they can dip negative). Right numbers: the chances, always amplitude × itself. Notice the checkbox flips a bar downward while the percentages refuse to move.</p></div>`;
+    if (page === 2) return `<div class="primer-widget"><div class="pw-controls"><button class="secondary" data-primer-measure="1">Measure once</button><button class="secondary" data-primer-measure="100">Measure ×100</button><button class="text-button" data-primer-tally-reset>Reset</button></div><div id="pw-tally-view">${tallyWidgetBody()}</div><p class="pw-caption">A 50/50 qubit never answers “half” — every single shot is a plain 0 or a plain 1. Only the long-run tally shows the lean.</p></div>`;
+    if (page === 3) return `<div class="primer-widget"><div class="pw-controls"><button class="secondary" data-primer-flip>${pwFlipped ? 'Make both signs positive' : 'Flip one path’s sign'}</button></div><div id="pw-interf-view">${interfWidgetBody()}</div><p class="pw-caption">Two routes lead to the answer “0”. Same strengths either way — only a sign differs — yet certainty becomes impossibility. No dice could ever do this.</p></div>`;
+    return `<div class="primer-widget"><svg viewBox="0 0 620 120" class="pw-svg" aria-label="Anatomy of a circuit: input terminal, wire, gate, pin, output terminal"><rect x="15" y="38" width="92" height="44" rx="5" class="pws-slot"/><text x="28" y="64" class="pws-cap">INPUT A</text><circle cx="107" cy="60" r="6" class="pws-pin"/><line x1="113" y1="60" x2="255" y2="60" class="pws-wire"/><circle cx="261" cy="60" r="6" class="pws-pin"/><rect x="267" y="32" width="70" height="56" rx="6" class="pws-gate"/><text x="291" y="68" class="pws-big pws-on">H</text><circle cx="343" cy="60" r="6" class="pws-pin"/><line x1="349" y1="60" x2="491" y2="60" class="pws-wire"/><circle cx="497" cy="60" r="6" class="pws-pin"/><rect x="503" y="38" width="100" height="44" rx="5" class="pws-slot"/><text x="513" y="64" class="pws-cap">OUTPUT A</text><text x="155" y="45" class="pws-cap">wire — one qubit, left to right</text><text x="250" y="110" class="pws-cap">orange pins: click one, then its partner, to wire</text><text x="268" y="22" class="pws-cap">a gate</text></svg></div>`;
+  }
   function renderPrimerPage(page) {
     const pages = window.FoundryPrimer; if (!$('primer-content')) return;
     primerPage = Math.max(0, Math.min(pages.length - 1, page));
+    pwTally = [0, 0]; pwLast = null;
     document.querySelectorAll('[data-primer-page]').forEach(b => { const active = Number(b.dataset.primerPage) === primerPage; b.classList.toggle('active', active); b.setAttribute('aria-selected', String(active)); });
     const p = pages[primerPage];
-    $('primer-content').innerHTML = `<h3 class="primer-title">${esc(p.title)}</h3>${p.body.map(t => `<p>${esc(t)}</p>`).join('')}<div class="primer-nav"><span class="tiny">Page ${primerPage + 1} of ${pages.length}</span><span>${primerPage > 0 ? '<button class="secondary" data-primer-step="-1">← Back</button> ' : ''}${primerPage < pages.length - 1 ? '<button class="primary" data-primer-step="1">Next →</button>' : '<button class="primary" data-primer-done>To the workshop →</button>'}</span></div>`;
+    $('primer-content').innerHTML = `<h3 class="primer-title">${esc(p.title)}</h3>${p.body.map(t => `<p>${esc(t)}</p>`).join('')}${primerWidget(primerPage)}<div class="primer-nav"><span class="tiny">Page ${primerPage + 1} of ${pages.length}</span><span>${primerPage > 0 ? '<button class="secondary" data-primer-step="-1">← Back</button> ' : ''}${primerPage < pages.length - 1 ? '<button class="primary" data-primer-step="1">Next →</button>' : '<button class="primary" data-primer-done>To the workshop →</button>'}</span></div>`;
   }
   function primerModal() {
     if (!project.seenPrimer) { project.seenPrimer = true; persist(); $('primer-button').classList.remove('pulse'); }
@@ -1529,7 +1591,13 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
     if (e.target.closest('[data-primer-done]')) { closeModal(); return; }
     if (e.target.closest('[data-open-primer]')) { primerModal(); return; }
     if (e.target.closest('[data-open-glossary]')) { glossaryModal(); return; }
+    const measure = e.target.closest('[data-primer-measure]');
+    if (measure) { const n = Number(measure.dataset.primerMeasure) || 1; for (let i = 0; i < n; i++) { pwLast = Math.random() < .5 ? 0 : 1; pwTally[pwLast]++; } if ($('pw-tally-view')) $('pw-tally-view').innerHTML = tallyWidgetBody(); return; }
+    if (e.target.closest('[data-primer-tally-reset]')) { pwTally = [0, 0]; pwLast = null; if ($('pw-tally-view')) $('pw-tally-view').innerHTML = tallyWidgetBody(); return; }
+    if (e.target.closest('[data-primer-flip]')) { pwFlipped = !pwFlipped; renderPrimerPage(primerPage); return; }
   });
+  document.addEventListener('input', e => { if (e.target.closest && e.target.closest('[data-primer-range]') && $('pw-amp-view')) $('pw-amp-view').innerHTML = ampWidgetBody(); });
+  document.addEventListener('change', e => { if (e.target.closest && e.target.closest('[data-primer-neg]') && $('pw-amp-view')) $('pw-amp-view').innerHTML = ampWidgetBody(); });
   function setMenu(open) { $('game-menu').hidden = !open; $('menu-button').setAttribute('aria-expanded', String(open)); }
   function showCredits() {
     const names = ['Maverick Pil', 'Yujie Wu', 'Kenneth Zhong', 'Anissa Li', 'Kevin MacLeod', 'Qollab', 'Carnegie Mellon University'];
