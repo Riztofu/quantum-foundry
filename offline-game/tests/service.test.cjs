@@ -141,3 +141,35 @@ test('every game script publishes its globals even where a CommonJS `module` exi
   assert.ok(root.FoundryLessons?.link?.goal, 'FoundryLessons'); assert.ok(root.FoundryPrimer?.length, 'FoundryPrimer'); assert.ok(root.FoundryGlossary?.length, 'FoundryGlossary');
   assert.ok((sandbox.window.FoundryCore || sandbox.FoundryCore)?.levels, 'FoundryCore'); assert.ok(sandbox.window.FoundryAudio?.create, 'FoundryAudio');
 });
+
+test('on Qollab a second IonQ run asks the player to save, then Stop and Run again', async () => {
+  const service = fakeService();
+  const host = { request: async (path, body) => {
+    const r = await service.fetch(path, body ? { method: 'POST', body: JSON.stringify(body) } : {}), data = await r.json();
+    if (path === '/api/health') data.ionq.one_job_per_run = true;
+    return data;
+  } };
+  const e = createEnvironment(); await e.win.quantumFoundry.attachHost(host); await settle();
+  await e.get('demo').click(); await e.begin();
+  await e.get('ionq-open').click(); await e.modalAction(2); await settle();
+  assert.match(e.get('dialog-title').textContent, /IonQ job/);
+  await e.key('Escape'); assert.equal(e.get('modal-root').firstChild, null);
+  await e.get('ionq-open').click();
+  assert.match(e.get('dialog-title').textContent, /Save, then start a new Run/);
+  assert.match(e.get('modal-root').textContent, /one IonQ job per Run/); assert.match(e.get('modal-root').textContent, /Import save/);
+  const posts = service.calls.filter(c => c.path === '/api/ionq/jobs' && c.method === 'POST').length;
+  await e.modalAction(0); // 💾 Save progress
+  assert.equal(e.doc.downloads.at(-1).name, 'Quantum-Foundry-Backup.json');
+  assert.match(e.get('restart-saved').textContent, /press Stop, then Run/);
+  assert.equal(service.calls.filter(c => c.path === '/api/ionq/jobs' && c.method === 'POST').length, posts, 'no second job was sent');
+});
+
+test('the main menu has Save and Import save buttons', async () => {
+  const e = createEnvironment();
+  assert.equal(e.get('campaign').hidden, false);
+  await e.get('map-save').click();
+  assert.equal(e.doc.downloads.at(-1).name, 'Quantum-Foundry-Backup.json');
+  const saved = JSON.parse(await e.doc.downloads.at(-1).blob.text()); assert.equal(saved.format, 'quantum-foundry-project');
+  let opened = false; e.get('import-file').addEventListener('click', () => { opened = true; });
+  await e.get('map-import').click(); assert.equal(opened, true);
+});

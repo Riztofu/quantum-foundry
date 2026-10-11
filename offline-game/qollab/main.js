@@ -16,6 +16,6 @@ const engine = window.quantumFoundry.getEngine();
 console.log(engine.kind === 'qiskit'
   ? `Qiskit ${engine.qiskit} connected. Play in the page above: Check circuit is graded by Qiskit; “Run on …” uses the backend chosen in Select QPU.`
   : 'Qiskit could not start; the game is using its exact local simulator.');
-console.log('Nothing is saved between Runs here: use Menu ≡ → Download backup to keep progress. Press Stop to end.');
+console.log('Nothing is saved between Runs here: use 💾 Save on the map to keep progress, and Import save after the next Run. Press Stop to end.');
 
 await new Promise(() => {}); // keep the Run (and Qiskit) alive while you play

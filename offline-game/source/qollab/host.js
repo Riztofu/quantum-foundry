@@ -21,7 +21,7 @@ export function createHost(bridge, backend) {
       : `This page runs on ${d.label}, chosen in Qollab's Select QPU dialog. Choose an IonQ simulator there (Stop, then Run) to sample on IonQ's cloud.`;
     return {
       service: 'quantum-foundry', host: 'qollab', engine: 'qiskit-statevector', qiskit: d.qiskit,
-      ionq: { configured: true, key: true, provider: 'Qollab', qpu_enabled: d.paid, default: 'qollab', max_qubits: d.max_qubits, note,
+      ionq: { configured: true, key: true, provider: 'Qollab', qpu_enabled: d.paid, default: 'qollab', max_qubits: d.max_qubits, one_job_per_run: d.ionq, note,
         targets: [{ id: 'qollab', label: d.label, short: d.short, kind: d.paid ? 'qpu' : 'simulator', noise_model: d.noise_model, paid: d.paid }] }
     };
   }

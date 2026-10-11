@@ -53,7 +53,7 @@
     return p;
   }
   let project = fresh(), storageOK = true, restoreWarning = '';
-  try { const saved = localStorage.getItem(KEY); if (saved) project = validateProject(JSON.parse(saved)); localStorage.setItem(KEY, JSON.stringify(project)); } catch (error) { storageOK = false; restoreWarning = 'Browser saving is unavailable here (for example inside Qollab) or a previous save could not be read. Use Menu → Download backup to keep your work.'; }
+  try { const saved = localStorage.getItem(KEY); if (saved) project = validateProject(JSON.parse(saved)); localStorage.setItem(KEY, JSON.stringify(project)); } catch (error) { storageOK = false; restoreWarning = 'Browser saving is unavailable here (for example inside Qollab) or a previous save could not be read. Use 💾 Save on the map (or Menu → Download backup) to keep your work, and Import save to continue later.'; }
   let level = levelFor(project.current, project), graph = C.clone(project.circuits[level.id] || C.starter(level.id, level.qubits)), camera = C.clone(project.cameras[level.id] || { x: 0, y: 0, zoom: 1 });
   let selected = null, placement = null, pendingWire = null, mode = 'select', pointer = { x: 500, y: 160 }, drag = null, spaceDown = false, undo = [], redo = [], activeTab = 'tests', caseIndex = project.inputs[level.id] || 0, stepIndex = 0, result = null, counts = null, compiled = null, trace = [], graphError = null, interval = null, toastTimer = null, modalFocus = null, uid = Date.now();
   let lessonPage = 0, exampleStep = 0, exampleInput = 0, attempted = false, countsEngine = 'random sampling';
@@ -597,7 +597,7 @@
   // ── IonQ: cloud simulators and trapped-ion QPUs through qiskit-ionq ─────
   // Each run prepares one or more selected inputs and samples them on IonQ.
   // Results sit beside the ideal prediction; they never decide grading.
-  let ionqJob = null, ionqPoll = null, ionqEstimateToken = 0;
+  let ionqJob = null, ionqPoll = null, ionqEstimateToken = 0, ionqRunUsed = false; // ionqRunUsed: Qollab's one IonQ job per Run is spent
   const IONQ_KEY = 'quantum-foundry-ionq-jobs';
   const ionqFinal = s => ['done', 'cancelled', 'failed'].includes(s);
   const ionqStatusName = s => ({ submitted: 'Submitted', queued: 'Waiting in the IonQ queue', validating: 'Validating', running: 'Running', done: 'Complete', cancelled: 'Cancelled', failed: 'Failed' }[s] || 'Unknown');
@@ -614,8 +614,16 @@
     modal('Run on IonQ', `<p>Quantum Foundry can send your circuit to IonQ: the free cloud simulator (ideal or with Aria / Forte noise models) or a real trapped-ion QPU. The API key stays inside the local service.</p>${steps}<p class="lesson-note">${!servedOverHttp && service.kind === 'qiskit' ? 'Qiskit is connected, but this page was opened as a file. IonQ runs need the page served by the service at http://127.0.0.1:8000.' : 'Everything else in the game works without IonQ.'}</p>`,
       [{ label: 'Check again', run: async () => { await probeEngine(false); if (ionqReady()) ionqPanel(); } }, ...(ionqJob ? [{ label: 'Last job', run: () => showIonqJob(ionqJob) }] : []), { label: 'Close', primary: true, run: closeModal }], true);
   }
+  function ionqRestart() {
+    modal('Save, then start a new Run', `<p>Qollab sends <b>one IonQ job per Run</b>, and this Run has already used it. To send another:</p><ol class="experiment-steps"><li><b>Save your progress.</b> Qollab keeps nothing once the Run stops.</li><li>Press <b>Stop</b>, then <b>Run</b> again and choose an IonQ simulator in Select QPU.</li><li>On the map, press <b>Import save</b> and pick the file to continue where you left off.</li></ol><p id="restart-saved" class="tiny" aria-live="polite"></p>`, [
+      { label: '💾 Save progress', primary: true, run: () => { backup(); if ($('restart-saved')) $('restart-saved').textContent = 'Saved Quantum-Foundry-Backup.json. If the download was blocked, copy the backup from the Qollab console below. Now press Stop, then Run.'; } },
+      ...(ionqJob ? [{ label: 'View last job', run: () => showIonqJob(ionqJob) }] : []),
+      { label: 'Close', run: closeModal }
+    ]);
+  }
   function ionqPanel() {
     if (!ionqReady()) { ionqSetup(); return; }
+    if (ionqRunUsed) { ionqRestart(); return; }
     if (!readyToRun()) return;
     const cases = C.cases(level), maxQubits = service.ionq.max_qubits || Infinity, all = cases.length > 1 && cases.length <= 16 && cases.length * level.qubits <= maxQubits, targets = service.ionq.targets;
     const chosen = targets.some(t => t.id === project.settings.ionqTarget) ? project.settings.ionqTarget : service.ionq.default || targets[0].id;
@@ -669,10 +677,12 @@
     try {
       const job = await api('/api/ionq/jobs', { ...ionqBody(selection, circuits), confirm_paid: selection.target.paid });
       rememberIonqContext(job.job_id, { title: level.title, levelId: level.id, qubits: level.qubits, labels: circuits.map(c => c.label), ideal: circuits.map(c => c.ideal), created: Date.now() });
+      if (service.ionq?.one_job_per_run) ionqRunUsed = true;
       ionqJob = job; renderIonQStatus(); showIonqJob(job); watchIonq(job.job_id, selection.target.paid ? 15000 : 2500);
       notify('Submitted to ' + job.target_label + ' · job ' + job.job_id);
     } catch (error) {
       lostService(error);
+      if (error.status === 429) { ionqRunUsed = true; ionqRestart(); return; }
       if ($('ionq-error')) { $('ionq-error').textContent = error.message; if (button) { button.disabled = false; button.textContent = 'Submit to IonQ'; } } else notify('IonQ: ' + error.message);
     }
   }
@@ -894,7 +904,8 @@
   $('primer-button').classList.toggle('pulse', !project.seenPrimer);
   $('glossary-button').onclick = () => { setMenu(false); glossaryModal(); };
   $('save-component').onclick = saveComponentDialog;
-  $('backup').onclick = backup; $('import').onclick = () => $('import-file').click(); $('export').onclick = exportPython;
+  $('backup').onclick = backup; $('import').onclick = () => $('import-file').click();
+  $('map-save').onclick = backup; $('map-import').onclick = () => $('import-file').click(); $('export').onclick = exportPython;
   $('reset-circuit').onclick = () => modal('Reset this schematic?', '<p>Clear your placed parts and wires for this assignment. Saved components and earned campaign progress stay available. Undo restores the circuit after a reset.</p>', [{ label: 'Cancel', run: closeModal }, { label: 'Reset circuit', primary: true, run: () => { closeModal(); selected = null; placement = null; commit(C.starter(level.id, level.qubits), 'Assignment reset. Undo can restore your circuit.'); fit(); } }]);
   $('toggle-parts').onclick = () => { project.settings.partsCollapsed = !project.settings.partsCollapsed; $('app').classList.toggle('parts-collapsed', project.settings.partsCollapsed); $('toggle-parts').setAttribute('aria-expanded', String(!project.settings.partsCollapsed)); persist(); requestAnimationFrame(fit); };
   $('import-file').onchange = async e => {

@@ -205,7 +205,7 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
     <footer class="statusbar"><span id="status-text">Choose an assignment.</span><span>V select · W wire · Del remove · ⌘ Z undo · F fit</span><span id="campaign-status">0 / 16 complete</span></footer>
   </div>
   <section id="campaign" class="campaign" aria-label="Assignment map">
-    <div class="map-top"><div class="map-brand"><svg class="foundry-mark" viewBox="0 0 36 36" aria-hidden="true"><path d="M 1 18 H 8 M 28 18 H 35 M 18 1 V 8 M 18 28 V 35"/><rect x="8" y="8" width="20" height="20"/><path d="M 13 13 H 23 V 23 H 13 Z M 20 20 L 25 25"/></svg><div><h1>QUANTUM FOUNDRY</h1><span>Build a quantum machine, one circuit at a time</span></div></div><div class="map-actions"><button id="primer-button" class="secondary" title="Five short pages that assume no background at all">🧭 Start from zero</button><button id="map-music" class="secondary music-toggle" aria-pressed="false">♫ Music</button><button id="map-back" class="secondary">Return to circuit</button><button id="demo" class="secondary">Bell demo</button><button id="sandbox" class="secondary">Sandbox ↗</button></div></div>
+    <div class="map-top"><div class="map-brand"><svg class="foundry-mark" viewBox="0 0 36 36" aria-hidden="true"><path d="M 1 18 H 8 M 28 18 H 35 M 18 1 V 8 M 18 28 V 35"/><rect x="8" y="8" width="20" height="20"/><path d="M 13 13 H 23 V 23 H 13 Z M 20 20 L 25 25"/></svg><div><h1>QUANTUM FOUNDRY</h1><span>Build a quantum machine, one circuit at a time</span></div></div><div class="map-actions"><button id="primer-button" class="secondary" title="Five short pages that assume no background at all">🧭 Start from zero</button><button id="map-music" class="secondary music-toggle" aria-pressed="false">♫ Music</button><button id="map-save" class="secondary" title="Save your progress, circuits, and components to a file">💾 Save</button><button id="map-import" class="secondary" title="Load progress from a saved file">Import save</button><button id="map-back" class="secondary">Return to circuit</button><button id="demo" class="secondary">Bell demo</button><button id="sandbox" class="secondary">Sandbox ↗</button></div></div>
     <div class="map-instructions"><span class="eyebrow">APPRENTICE PROGRAM · NO PHYSICS BACKGROUND NEEDED</span><p>Wire → gates → saved components → registers → algorithms. New here? Press <b>🧭 Start from zero</b> — two minutes, nothing assumed.</p><div class="map-legend"><span class="legend-available">Available</span><span class="legend-complete">Complete</span><span class="legend-locked">Locked</span></div></div>
     <nav id="map-chapters" class="map-chapters" aria-label="Campaign chapters"></nav>
     <div class="map-scroll"><div class="map-board" id="map-board"><svg id="map-links" viewBox="0 0 1130 530" preserveAspectRatio="none" aria-hidden="true"></svg><div id="map-nodes"></div></div></div>
@@ -1288,7 +1288,7 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
     return p;
   }
   let project = fresh(), storageOK = true, restoreWarning = '';
-  try { const saved = localStorage.getItem(KEY); if (saved) project = validateProject(JSON.parse(saved)); localStorage.setItem(KEY, JSON.stringify(project)); } catch (error) { storageOK = false; restoreWarning = 'Browser saving is unavailable here (for example inside Qollab) or a previous save could not be read. Use Menu → Download backup to keep your work.'; }
+  try { const saved = localStorage.getItem(KEY); if (saved) project = validateProject(JSON.parse(saved)); localStorage.setItem(KEY, JSON.stringify(project)); } catch (error) { storageOK = false; restoreWarning = 'Browser saving is unavailable here (for example inside Qollab) or a previous save could not be read. Use 💾 Save on the map (or Menu → Download backup) to keep your work, and Import save to continue later.'; }
   let level = levelFor(project.current, project), graph = C.clone(project.circuits[level.id] || C.starter(level.id, level.qubits)), camera = C.clone(project.cameras[level.id] || { x: 0, y: 0, zoom: 1 });
   let selected = null, placement = null, pendingWire = null, mode = 'select', pointer = { x: 500, y: 160 }, drag = null, spaceDown = false, undo = [], redo = [], activeTab = 'tests', caseIndex = project.inputs[level.id] || 0, stepIndex = 0, result = null, counts = null, compiled = null, trace = [], graphError = null, interval = null, toastTimer = null, modalFocus = null, uid = Date.now();
   let lessonPage = 0, exampleStep = 0, exampleInput = 0, attempted = false, countsEngine = 'random sampling';
@@ -1832,7 +1832,7 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
   // ── IonQ: cloud simulators and trapped-ion QPUs through qiskit-ionq ─────
   // Each run prepares one or more selected inputs and samples them on IonQ.
   // Results sit beside the ideal prediction; they never decide grading.
-  let ionqJob = null, ionqPoll = null, ionqEstimateToken = 0;
+  let ionqJob = null, ionqPoll = null, ionqEstimateToken = 0, ionqRunUsed = false; // ionqRunUsed: Qollab's one IonQ job per Run is spent
   const IONQ_KEY = 'quantum-foundry-ionq-jobs';
   const ionqFinal = s => ['done', 'cancelled', 'failed'].includes(s);
   const ionqStatusName = s => ({ submitted: 'Submitted', queued: 'Waiting in the IonQ queue', validating: 'Validating', running: 'Running', done: 'Complete', cancelled: 'Cancelled', failed: 'Failed' }[s] || 'Unknown');
@@ -1849,8 +1849,16 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
     modal('Run on IonQ', `<p>Quantum Foundry can send your circuit to IonQ: the free cloud simulator (ideal or with Aria / Forte noise models) or a real trapped-ion QPU. The API key stays inside the local service.</p>${steps}<p class="lesson-note">${!servedOverHttp && service.kind === 'qiskit' ? 'Qiskit is connected, but this page was opened as a file. IonQ runs need the page served by the service at http://127.0.0.1:8000.' : 'Everything else in the game works without IonQ.'}</p>`,
       [{ label: 'Check again', run: async () => { await probeEngine(false); if (ionqReady()) ionqPanel(); } }, ...(ionqJob ? [{ label: 'Last job', run: () => showIonqJob(ionqJob) }] : []), { label: 'Close', primary: true, run: closeModal }], true);
   }
+  function ionqRestart() {
+    modal('Save, then start a new Run', `<p>Qollab sends <b>one IonQ job per Run</b>, and this Run has already used it. To send another:</p><ol class="experiment-steps"><li><b>Save your progress.</b> Qollab keeps nothing once the Run stops.</li><li>Press <b>Stop</b>, then <b>Run</b> again and choose an IonQ simulator in Select QPU.</li><li>On the map, press <b>Import save</b> and pick the file to continue where you left off.</li></ol><p id="restart-saved" class="tiny" aria-live="polite"></p>`, [
+      { label: '💾 Save progress', primary: true, run: () => { backup(); if ($('restart-saved')) $('restart-saved').textContent = 'Saved Quantum-Foundry-Backup.json. If the download was blocked, copy the backup from the Qollab console below. Now press Stop, then Run.'; } },
+      ...(ionqJob ? [{ label: 'View last job', run: () => showIonqJob(ionqJob) }] : []),
+      { label: 'Close', run: closeModal }
+    ]);
+  }
   function ionqPanel() {
     if (!ionqReady()) { ionqSetup(); return; }
+    if (ionqRunUsed) { ionqRestart(); return; }
     if (!readyToRun()) return;
     const cases = C.cases(level), maxQubits = service.ionq.max_qubits || Infinity, all = cases.length > 1 && cases.length <= 16 && cases.length * level.qubits <= maxQubits, targets = service.ionq.targets;
     const chosen = targets.some(t => t.id === project.settings.ionqTarget) ? project.settings.ionqTarget : service.ionq.default || targets[0].id;
@@ -1904,10 +1912,12 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
     try {
       const job = await api('/api/ionq/jobs', { ...ionqBody(selection, circuits), confirm_paid: selection.target.paid });
       rememberIonqContext(job.job_id, { title: level.title, levelId: level.id, qubits: level.qubits, labels: circuits.map(c => c.label), ideal: circuits.map(c => c.ideal), created: Date.now() });
+      if (service.ionq?.one_job_per_run) ionqRunUsed = true;
       ionqJob = job; renderIonQStatus(); showIonqJob(job); watchIonq(job.job_id, selection.target.paid ? 15000 : 2500);
       notify('Submitted to ' + job.target_label + ' · job ' + job.job_id);
     } catch (error) {
       lostService(error);
+      if (error.status === 429) { ionqRunUsed = true; ionqRestart(); return; }
       if ($('ionq-error')) { $('ionq-error').textContent = error.message; if (button) { button.disabled = false; button.textContent = 'Submit to IonQ'; } } else notify('IonQ: ' + error.message);
     }
   }
@@ -2129,7 +2139,8 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
   $('primer-button').classList.toggle('pulse', !project.seenPrimer);
   $('glossary-button').onclick = () => { setMenu(false); glossaryModal(); };
   $('save-component').onclick = saveComponentDialog;
-  $('backup').onclick = backup; $('import').onclick = () => $('import-file').click(); $('export').onclick = exportPython;
+  $('backup').onclick = backup; $('import').onclick = () => $('import-file').click();
+  $('map-save').onclick = backup; $('map-import').onclick = () => $('import-file').click(); $('export').onclick = exportPython;
   $('reset-circuit').onclick = () => modal('Reset this schematic?', '<p>Clear your placed parts and wires for this assignment. Saved components and earned campaign progress stay available. Undo restores the circuit after a reset.</p>', [{ label: 'Cancel', run: closeModal }, { label: 'Reset circuit', primary: true, run: () => { closeModal(); selected = null; placement = null; commit(C.starter(level.id, level.qubits), 'Assignment reset. Undo can restore your circuit.'); fit(); } }]);
   $('toggle-parts').onclick = () => { project.settings.partsCollapsed = !project.settings.partsCollapsed; $('app').classList.toggle('parts-collapsed', project.settings.partsCollapsed); $('toggle-parts').setAttribute('aria-expanded', String(!project.settings.partsCollapsed)); persist(); requestAnimationFrame(fit); };
   $('import-file').onchange = async e => {
