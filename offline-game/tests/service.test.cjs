@@ -131,3 +131,13 @@ test('an attached host (the Qollab build) replaces the HTTP service for grading 
   await e.open('link'); await e.wire('in0', 'out0'); await e.get('check').click(); await settle();
   assert.ok(calls.includes('/api/verify')); assert.equal(e.win.quantumFoundry.getProject().progress.link, true);
 });
+
+test('every game script publishes its globals even where a CommonJS `module` exists (Qollab)', () => {
+  const fs = require('node:fs'), vm = require('node:vm'), path = require('node:path');
+  const window = {}, sandbox = { window, globalThis: window, module: { exports: {} }, console };
+  vm.createContext(sandbox);
+  for (const file of ['core.js', 'lessons.js', 'audio.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'source', file), 'utf8'), sandbox);
+  const root = sandbox.window.FoundryLessons ? sandbox.window : sandbox;
+  assert.ok(root.FoundryLessons?.link?.goal, 'FoundryLessons'); assert.ok(root.FoundryPrimer?.length, 'FoundryPrimer'); assert.ok(root.FoundryGlossary?.length, 'FoundryGlossary');
+  assert.ok((sandbox.window.FoundryCore || sandbox.FoundryCore)?.levels, 'FoundryCore'); assert.ok(sandbox.window.FoundryAudio?.create, 'FoundryAudio');
+});
