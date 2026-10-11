@@ -23,17 +23,20 @@
     { title: 'Amplitudes: the numbers underneath', body: [
       'Here is the one piece of math the whole game runs on. A qubit between readings keeps a number for EACH possible answer. That number is called the amplitude of the answer. If a qubit has amplitude 1 for |0⟩ and amplitude 0 for |1⟩, it is plainly 0. If both amplitudes are 0.707, it leans equally toward both.',
       'Amplitudes turn into chances by a single rule: the probability of reading an answer is that answer’s amplitude multiplied by itself. 0.707 × 0.707 ≈ 0.5, so an amplitude of 0.707 means a 50% chance. Amplitude 1 means certainty. Amplitude 0 means never.',
-      'And now the twist that makes quantum different from dice: an amplitude can be NEGATIVE. −0.707 also squares to 50%, so a minus sign is invisible when you read the qubit… but the sign is still there, and later steps can make it matter. Hold that thought — it becomes the punchline of mission 4.'
+      'And now the twist that makes quantum different from dice: an amplitude can be NEGATIVE. −0.707 also squares to 50%, so a minus sign is invisible when you read the qubit… but the sign is still there, and later steps can make it matter. Hold that thought — it becomes the punchline of mission 4.',
+      'Now stop reading and drag. The slider below sets the lean; the bars are the two amplitudes; the percentages follow the squaring rule live. Then tick the box to make an amplitude negative — and watch the chances refuse to care.'
     ]},
     { title: 'Measurement: asking the question', body: [
       'Reading a qubit is called measurement. Measurement forces the qubit to commit: it answers 0 or 1, at random, with the chances given by the squared amplitudes. After it answers, the in-between lean is gone — the qubit now simply IS the answer it gave.',
       'Because measuring disturbs the qubit, you cannot peek at amplitudes directly on real hardware. You can only prepare a fresh qubit, measure it once, and repeat many times to see the pattern. That is exactly what the game’s “Sample output” button does: every shot builds your circuit again from scratch and measures once.',
-      'This game is also a friendly training ground: its State panel shows you the exact amplitudes at every step, like an x-ray real hardware can never give you. The panel always tells you which view you are getting.'
+      'This game is also a friendly training ground: its State panel shows you the exact amplitudes at every step, like an x-ray real hardware can never give you. The panel always tells you which view you are getting.',
+      'Try it below. Every press prepares a fresh 50/50 qubit and asks it once. Single answers are always plain 0s and 1s — only the growing tally reveals the lean.'
     ]},
     { title: 'Interference: why the minus sign is the superpower', body: [
       'If qubits were just “random until read”, they would be fancy coins and nobody would build computers out of them. The reason they are more: amplitudes ADD. When two paths lead to the same answer, their amplitudes combine — and a +0.5 meeting a −0.5 cancels to zero. The answer becomes impossible. That cancellation is called interference.',
       'A quantum program is choreography: arrange the gates so that amplitudes pointing at WRONG answers cancel each other out, and amplitudes pointing at the RIGHT answer pile up. Then a single measurement reads off the right answer with high probability.',
-      'That is the honest version of “quantum computers try everything at once”. They do explore alternatives together — but a naive read-out would just give you a random alternative. The skill, and this game, is in making the alternatives interfere so the readout is the one you wanted.'
+      'That is the honest version of “quantum computers try everything at once”. They do explore alternatives together — but a naive read-out would just give you a random alternative. The skill, and this game, is in making the alternatives interfere so the readout is the one you wanted.',
+      'See for yourself below: two paths of equal strength arrive at the answer “0”. Flip one sign and a guaranteed answer becomes an impossible one. That switch is the entire difference between quantum machinery and dice.'
     ]},
     { title: 'How the workshop works', body: [
       'You build circuits: qubits flow along amber wires from INPUT terminals on the left to OUTPUT terminals on the right, passing through gates — small machines that change amplitudes in precise, reversible ways. Pick a part from Parts, click the board to place it, click an output pin then an input pin to wire them. Every pin needs a connection.',

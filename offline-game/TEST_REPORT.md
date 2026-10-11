@@ -58,3 +58,7 @@ After adding the Kevin MacLeod soundtrack layer and the live Qiskit runner:
 ## Ground-up teaching layer — passed
 
 After adding the from-zero primer, per-mission NEW WORDS, the Dictionary, and rewriting all 17 lesson texts for readers with no background: **70 / 70 tests pass** (one new gameplay test covers primer paging, seenPrimer persistence, the dictionary modal, and the NEW WORDS panel). Chromium screenshots verified the primer, dictionary, and briefing render correctly with zero console errors.
+
+## Primer visuals and interactive widgets — passed
+
+Every primer page now carries a visual: a bit-vs-qubit diagram (p1), a live drag-the-lean amplitude/probability widget with a negative-sign toggle (p2), a measure-once / measure-x100 tally sampler (p3), a two-path interference demonstrator using the real H-Z-H numbers (p4), and an annotated circuit-anatomy diagram (p5). **71 / 71 tests pass** (new test drives the slider, sampler, and sign-flip through real events). Chromium screenshots verified all five pages render with zero console errors.
