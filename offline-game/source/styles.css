@@ -42,3 +42,16 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
 .map-actions #primer-button.pulse{border-color:#63cdd6;color:#63cdd6;animation:primer-pulse 2s ease-in-out infinite}
 @keyframes primer-pulse{0%,100%{box-shadow:0 0 0 0 #63cdd600}50%{box-shadow:0 0 0 5px #63cdd62b}}
 @media(prefers-reduced-motion:reduce){.map-actions #primer-button.pulse{animation:none;box-shadow:0 0 0 2px #63cdd62b}}
+/* Subtle sage shift keeps the charcoal workshop calm while softening its blue cast. */
+:root{--bg:#252a28;--panel:#202624;--panel2:#2b322f;--cyan:#91bca2;--green:#b1c995}
+.gate-guide{border:1px solid #748d78;background:#2b3830;padding:11px 14px;margin:12px 0 14px}
+.gate-guide h3{margin:0 0 7px;color:#c3d9ad}
+.gate-guide>div{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.gate-guide p{margin:4px 0;font-size:11px;line-height:1.55;color:#d0ddd0}
+.gate-guide b{color:#e3efcf}
+.credit-list,.music-credit-list{padding-left:20px}
+.credit-list{list-style:none;padding:0}
+.credit-list li,.music-credit-list li{padding:4px 0}
+.music-credit-list a{color:#b8d7b5}
+.qpu-counts{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:5px;padding-left:20px}
+@media(max-width:700px){.gate-guide>div{grid-template-columns:1fr;gap:5px}.gate-guide{padding:10px}}

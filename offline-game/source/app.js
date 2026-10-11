@@ -56,6 +56,7 @@
   let level = levelFor(project.current, project), graph = C.clone(project.circuits[level.id] || C.starter(level.id, level.qubits)), camera = C.clone(project.cameras[level.id] || { x: 0, y: 0, zoom: 1 });
   let selected = null, placement = null, pendingWire = null, mode = 'select', pointer = { x: 500, y: 160 }, drag = null, spaceDown = false, undo = [], redo = [], activeTab = 'tests', caseIndex = project.inputs[level.id] || 0, stepIndex = 0, result = null, counts = null, compiled = null, trace = [], graphError = null, interval = null, toastTimer = null, modalFocus = null, uid = Date.now();
   let lessonPage = 0, exampleStep = 0, exampleInput = 0, attempted = false, countsEngine = 'random sampling';
+  let quantumBackend = { ready: false, backend: 'IonQ QPU' }, quantumJobId = '', quantumJobBusy = false, quantumJobContext = null;
   const svg = $('canvas');
   const source = () => C.cases(level)[caseIndex] || C.cases(level)[0];
   const modules = () => project.modules;
@@ -252,7 +253,7 @@
     $('input-buttons').innerHTML = compactInput ? '' : cases.map((c, i) => `<button class="${caseIndex === i ? 'active' : ''}" data-input="${i}" aria-pressed="${caseIndex === i}" title="${esc(c.input)}">${esc(inputLabel(c, i))}</button>`).join('');
     $('input-select').innerHTML = cases.map((c, i) => `<option value="${i}"${caseIndex === i ? ' selected' : ''}>${esc(c.input)}</option>`).join(''); $('input-select').value = String(caseIndex);
     $('register-control').hidden = level.id !== 'sandbox'; $('register-size').value = String(level.qubits);
-    $('undo').disabled = !undo.length; $('redo').disabled = !redo.length; $('check').disabled = level.id === 'sandbox';
+    $('undo').disabled = !undo.length; $('redo').disabled = !redo.length; $('check').hidden = level.id === 'sandbox'; $('check').disabled = level.id === 'sandbox';
     $('save-component').disabled = level.id !== 'sandbox' && (!level.kind || !result?.passed);
     $('save-component').hidden = level.id !== 'sandbox' && !level.kind;
     $('app').classList.toggle('parts-collapsed', project.settings.partsCollapsed);
@@ -273,7 +274,7 @@
     selected = null; placement = null; pendingWire = null; undo = []; redo = []; result = null; counts = null; attempted = false; caseIndex = project.inputs[id] || 0; stepIndex = 0; activeTab = 'tests';
     $('campaign').hidden = true; project.lastView = 'workbench'; compute(); render(); persist(); requestAnimationFrame(() => { if (!project.cameras[id] || camera.zoom === 1 && camera.x === 0 && camera.y === 0) fit(); });
     $('status-text').textContent = level.contract;
-    if (level.number) { project.settings.chapter = level.number > 8 ? 1 : 0; project.briefings[id] = true; persist(); briefing(); } else { closeModal(); ensureMusic(); }
+    if (level.number || id === 'sandbox') { if (level.number) project.settings.chapter = level.number > 8 ? 1 : 0; project.briefings[id] = true; persist(); briefing(); } else { closeModal(); ensureMusic(); }
   }
   const mapPositions = [[0, 180], [225, 180], [450, 180], [680, 45], [680, 300], [915, 300], [915, 170], [915, 30]];
   const advancedPositions = [[0, 100], [280, 100], [560, 100], [840, 100], [840, 310], [560, 310], [280, 310], [0, 310]];
@@ -329,6 +330,78 @@
     if (e.target.closest('[data-open-glossary]')) { glossaryModal(); return; }
   });
   function setMenu(open) { $('game-menu').hidden = !open; $('menu-button').setAttribute('aria-expanded', String(open)); }
+  function showCredits() {
+    const names = ['Maverick Pil', 'Yujie Wu', 'Kenneth Zhong', 'Anissa Li', 'Kevin MacLeod', 'Qollab', 'Carnegie Mellon University'];
+    modal('Credits', `<ul class="credit-list">${names.map(name => `<li>${esc(name)}</li>`).join('')}</ul>`, [{ label: 'Back to game', primary: true, run: closeModal }]);
+  }
+  function showMusicCredits() {
+    const songs = window.FoundryAudio.playlist.map(id => window.FoundryAudio.tracks[id]);
+    const rows = songs.map(t => {
+      const link = 'https://incompetech.com/music/royalty-free/index.html?isrc=' + encodeURIComponent(t.isrc);
+      return `<li><a href="${link}" target="_blank" rel="noopener noreferrer">${esc(t.title)}</a> — Kevin MacLeod (incompetech.com), licensed under CC BY 4.0.</li>`;
+    }).join('');
+    modal('Music credits', `<p>These recordings are included unchanged for offline play. Each is licensed under <a href="${window.FoundryAudio.licenseUrl}" target="_blank" rel="noopener noreferrer">Creative Commons Attribution 4.0 International</a>.</p><ul class="music-credit-list">${rows}</ul>`, [{ label: 'Back to game', primary: true, run: closeModal }], true);
+  }
+  function setQuantumAvailability(data, fallback = '') {
+    quantumBackend = { ready: data?.hardware_ready === true, backend: data?.backend || 'IonQ QPU' };
+    $('qpu-run').disabled = !quantumBackend.ready || quantumJobBusy;
+    $('qpu-status').textContent = quantumBackend.ready ? `Ready to submit to ${quantumBackend.backend}. Real device runs may use paid IonQ credits.` : fallback || 'Hardware run unavailable. Start the backend and set an IonQ API key on the server.';
+  }
+  async function refreshQuantumAvailability() {
+    if (window.location?.protocol === 'file:' || typeof fetch !== 'function') return;
+    try {
+      const response = await fetch('/api/health', { cache: 'no-store' }), data = await response.json();
+      if (!response.ok) throw Error('Service unavailable');
+      setQuantumAvailability(data);
+    } catch { setQuantumAvailability(null, 'Quantum backend not reachable. Start it to enable IonQ runs.'); }
+  }
+  function qpuConfirmation() {
+    if (!quantumBackend.ready) { notify('Start the Quantum Foundry backend and configure the IonQ key first.'); return; }
+    if (!readyToRun()) return;
+    const c = source();
+    const scope = level.id === 'sandbox' ? 'Sandbox has no pass-or-fail score; this run reports one input only.' : 'This checks one input only and does not replace the exact Check circuit test.';
+    modal('Run on IonQ hardware?', `<p>This sends the selected circuit and input to <b>${esc(quantumBackend.backend)}</b>, a real quantum device. It may use paid IonQ credits.</p><p><b>${esc(level.title)}</b> · ${esc(c.input)} · ${project.settings.shots} shots</p><p>The device returns noisy measurement samples. ${scope}</p>`, [
+      { label: 'Cancel', run: closeModal },
+      { label: 'Submit to IonQ', primary: true, run: submitIonQJob }
+    ]);
+  }
+  async function submitIonQJob() {
+    closeModal(); quantumJobBusy = true; $('qpu-run').disabled = true; $('qpu-status').textContent = 'Sending this circuit to IonQ…';
+    try {
+      const initial = source().basisInput ?? source().initial;
+      const operations = compiled.gates.map(g => ({ type: g.type, target: g.target, ...(['CX', 'SWAP'].includes(g.type) ? { control: g.control } : {}) }));
+      const body = { qubits: level.qubits, initial: typeof initial === 'number' ? { basis: initial } : { state: initial }, operations, shots: project.settings.shots };
+      quantumJobContext = { title: level.title, input: source().input, qubits: level.qubits, shots: project.settings.shots, idealState: C.clone(trace[trace.length - 1] || currentState()) };
+      const response = await fetch('/api/ionq/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await response.json();
+      if (!response.ok) throw Error(typeof data.detail === 'string' ? data.detail : 'IonQ could not accept this circuit.');
+      quantumJobId = data.job_id; quantumJobBusy = false; setQuantumAvailability({ hardware_ready: true, backend: data.backend });
+      $('qpu-status').textContent = `IonQ job ${quantumJobId} · ${data.status || 'queued'}`;
+      showIonQJob(data);
+    } catch (error) {
+      quantumJobBusy = false; setQuantumAvailability(quantumBackend, 'IonQ run failed: ' + (error.message || 'unknown error'));
+      notify('IonQ run failed: ' + (error.message || 'unknown error'));
+    }
+  }
+  function showIonQJob(job) {
+    const counts = job.counts && typeof job.counts === 'object' ? job.counts : null;
+    const outcomes = counts ? Object.entries(counts).sort((a,b) => b[1] - a[1]).map(([bits,count]) => `<li>|${esc(bits.replace(/\s/g,''))}⟩ · ${Number(count)} shots</li>`).join('') : '';
+    const context = quantumJobContext || { title: level.title, input: source().input, qubits: level.qubits, shots: project.settings.shots, idealState: trace[trace.length - 1] || currentState() };
+    const expected = C.probabilities(context.idealState).map((p,i) => p > 1e-5 ? `${C.bits(i, context.qubits)} ${(p * 100).toFixed(1)}%` : '').filter(Boolean).join(' · ');
+    const body = `<p>Backend: <b>${esc(job.backend || quantumBackend.backend)}</b> · Job: <code>${esc(job.job_id || quantumJobId)}</code></p><p>Run: ${esc(context.title)} · input ${esc(context.input)} · ${context.shots} shots</p><p>Status: <b>${esc(job.status || 'unknown')}</b></p>${counts ? `<p><b>Device results (${Object.values(counts).reduce((a,b) => a + Number(b),0)} shots)</b></p><ul class="qpu-counts">${outcomes}</ul><p>Ideal simulator prediction for this input: ${esc(expected)}. Real devices can differ because measurements are random and gates are imperfect.</p>` : '<p>Results are not ready yet. Check the job again in a little while.</p>'}<p class="lesson-note">This hardware sample covers one input only; it does not verify the whole circuit.</p>`;
+    modal('IonQ hardware result', body, [
+      ...(counts ? [] : [{ label: 'Check job status', primary: true, run: refreshIonQJob }]),
+      { label: 'Close', primary: counts, run: closeModal }
+    ], true);
+  }
+  async function refreshIonQJob() {
+    if (!quantumJobId) return;
+    try {
+      const response = await fetch('/api/ionq/jobs/' + encodeURIComponent(quantumJobId), { cache: 'no-store' }), data = await response.json();
+      if (!response.ok) throw Error(typeof data.detail === 'string' ? data.detail : 'Could not read this IonQ job.');
+      $('qpu-status').textContent = `IonQ job ${quantumJobId} · ${data.status || 'unknown'}`; showIonQJob(data);
+    } catch (error) { notify('Could not refresh IonQ job: ' + (error.message || 'unknown error')); }
+  }
   function closeModal() { $('modal-root').innerHTML = ''; if (modalFocus?.isConnected) modalFocus.focus(); else svg.focus(); modalFocus = null; }
   function modal(title, body, actions, large = false) {
     pause(); setMenu(false); if (!$('modal-root').firstChild) modalFocus = document.activeElement;
@@ -350,12 +423,14 @@
     if (lessonPage === 0) {
       const cases = C.cases(level);
       const table = rows => `<table class="briefing-contract"><thead><tr><th>${level.id === 'courier' ? 'MESSAGE cd' : 'INPUT'}</th><th>REQUIRED OUTPUT · ${C.bitOrder(level.qubits)}</th></tr></thead><tbody>${rows.map(c => `<tr><td>${esc(c.input)}</td><td>${esc(stateText(c.expected, level.qubits))}</td></tr>`).join('')}</tbody></table>`;
-      target.innerHTML = `<p class="briefing-goal">${esc(lesson.goal)}</p><p class="primer-link"><button class="text-button" data-open-primer>🧭 New to qubits? Start from zero — 2 minutes, nothing assumed</button><button class="text-button" data-open-glossary>📖 Dictionary</button></p><div class="mission-spec"><span>${level.qubits} qubit${level.qubits === 1 ? '' : 's'}</span><span>${level.number ? cases.length + ' input case' + (cases.length === 1 ? '' : 's') : 'No grading'}</span>${level.adjacentOnly ? '<span>Neighbor links only</span>' : ''}${['kickback', 'oracle'].includes(level.id) ? '<span>1 oracle query</span>' : ''}${project.best[level.id] ? '<span>Best: ' + project.best[level.id].count + ' gates</span>' : ''}</div>${level.number ? table(cases.slice(0, 4)) + (cases.length > 4 ? `<details class="more-cases"><summary>Show ${cases.length - 4} more required inputs</summary>${table(cases.slice(4))}</details>` : '') : ''}<div class="briefing-columns"><section><h3>What you have</h3><p>${esc(lesson.provided)}</p></section><section><h3>Build</h3><p>${esc(lesson.build)}</p></section></div><p class="lesson-reward">${level.reward ? 'Unlocks: ' + esc(level.reward) : 'Free build · no campaign contract'}</p>`;
+      const gateGuide = `<section class="gate-guide" aria-label="Gate guide"><h3>Two gates you will meet</h3><div><p><b>H · Hadamard</b><br>H turns a starting 0 into a quantum mix of 0 and 1, with equal chances when read. Later gates can make those paths combine and change the result.</p><p><b>CNOT · controlled flip</b><br>CNOT has a control and a target. If the control is 1, it flips the target; if the control is 0, the target stays the same. It does not measure either qubit.</p></div></section>`;
+      target.innerHTML = `<p class="briefing-goal">${esc(lesson.goal)}</p>${gateGuide}<p class="primer-link"><button class="text-button" data-open-primer>🧭 New to qubits? Start from zero — 2 minutes, nothing assumed</button><button class="text-button" data-open-glossary>📖 Dictionary</button></p><div class="mission-spec"><span>${level.qubits} qubit${level.qubits === 1 ? '' : 's'}</span><span>${level.number ? cases.length + ' input case' + (cases.length === 1 ? '' : 's') : 'No grading'}</span>${level.adjacentOnly ? '<span>Neighbor links only</span>' : ''}${['kickback', 'oracle'].includes(level.id) ? '<span>1 oracle query</span>' : ''}${project.best[level.id] ? '<span>Best: ' + project.best[level.id].count + ' gates</span>' : ''}</div>${level.number ? table(cases.slice(0, 4)) + (cases.length > 4 ? `<details class="more-cases"><summary>Show ${cases.length - 4} more required inputs</summary>${table(cases.slice(4))}</details>` : '') : ''}<div class="briefing-columns"><section><h3>What you have</h3><p>${esc(lesson.provided)}</p></section><section><h3>Build</h3><p>${esc(lesson.build)}</p></section></div><p class="lesson-reward">${level.reward ? 'Unlocks: ' + esc(level.reward) : 'Free build · no campaign contract'}</p>`;
     } else if (lessonPage === 1) {
       target.innerHTML = `${(lesson.words || []).length ? `<div class="new-words"><span class="new-words-title">NEW WORDS IN THIS MISSION</span>${lesson.words.map(([t, d]) => `<p><b>${esc(t)}</b> — ${esc(d)}</p>`).join('')}<button class="text-button" data-open-glossary>📖 Full dictionary</button></div>` : ''}${lesson.concepts.map(p => `<p>${esc(p)}</p>`).join('')}<div id="concept-example" class="concept-lab"></div><p class="lesson-note">${esc(lesson.note)}</p>${level.number >= 3 ? '<p class="tiny">A single overall phase of the entire state does not change observations. The tests ignore it; relative signs between alternatives still matter.</p>' : ''}`;
       renderExample();
     } else {
-      target.innerHTML = `<h3>Try this experiment</h3><ol class="experiment-steps">${lesson.experiment.map(p => `<li>${esc(p)}</li>`).join('')}</ol><h3>What the result means</h3><p>${esc(lesson.observe)}</p><h3>What Check circuit verifies</h3><ul class="lesson-checklist">${lesson.checks.map(p => `<li>${esc(p)}</li>`).join('')}</ul><p class="lesson-note">Use Need a hint? on the workbench for progressively more specific help.</p>`;
+      const sandbox = level.id === 'sandbox';
+      target.innerHTML = `<h3>${sandbox ? 'Try an experiment' : 'Try this experiment'}</h3><ol class="experiment-steps">${lesson.experiment.map(p => `<li>${esc(p)}</li>`).join('')}</ol><h3>What the result means</h3><p>${esc(lesson.observe)}</p><h3>${sandbox ? 'Sandbox rules' : 'What Check circuit verifies'}</h3><ul class="lesson-checklist">${lesson.checks.map(p => `<li>${esc(p)}</li>`).join('')}</ul><p class="lesson-note">${sandbox ? 'Sandbox has no Check circuit button. Use Step and Sample output to explore your circuit.' : 'Use Need a hint? on the workbench for progressively more specific help.'}</p>`;
     }
   }
   function renderExample() {
@@ -389,7 +464,8 @@
     return `<svg class="example-schematic" viewBox="0 0 ${width} ${height}" role="img" aria-label="Worked circuit diagram. Choose the numbered steps below to inspect it.">${drawing}</svg>`;
   }
   function help() {
-    modal('Controls & saving', '<p>Choose a part on the right, then click the board to place it. Drag its body to move it. Click an <b>output pin</b>, then an <b>input pin</b> to connect them.</p><p>Orange wires carry qubits. Each output has one destination. Crossing wires stay separate. Select a wire or part and press Delete to remove it.</p><p><b>Assignment</b> opens the goal, an interactive explanation, and a guided experiment. <b>Check circuit</b> verifies every required test. Save passing component assignments as blocks for later puzzles.</p><p><b>Step</b> reveals intermediate amplitudes in State. <b>Sample output</b> measures fresh preparations of the final circuit. The bench’s ▾ button collapses it; selecting a tab expands it. Joint bitstrings read from the highest qubit index down to A=q0: B A, C B A, and D C B A.</p><div class="help-keys"><b>V / W</b><span>Select / wire</span><b>X H Z C S</b><span>Choose X / H / Z / CNOT / SWAP</span><b>⌘ Z / ⇧ ⌘ Z</b><span>Undo / redo</span><b>Delete / Esc</b><span>Remove / cancel</span><b>F / arrows</b><span>Fit / move selected part</span><b>Space + drag</b><span>Pan canvas</span><b>Pinch / ⌘ scroll</b><span>Zoom around pointer</span></div><p>Work saves in this browser when local storage is available. <b>Menu → Download backup</b> keeps a portable JSON copy. <b>Import backup</b> restores it in another browser or computer. The game runs offline; Qiskit export is a separate aid. Sandbox supports one to six qubits and remembers each size independently. Use ♫ to start or mute the original music; the menu contains track and volume controls.</p>', [{ label: 'Back to game', primary: true, run: closeModal }]);
+    const sandbox = level.id === 'sandbox' ? '<p>Sandbox has no Check circuit button or campaign pass/fail score. Use Step to follow each gate and Sample output to explore possible results.</p>' : '<p><b>Check circuit</b> verifies every required test. Passing component assignments can be saved as blocks.</p>';
+    modal('Controls & saving', '<p>Choose a part on the right, then click the board to place it. Drag its body to move it. Click an <b>output pin</b>, then an <b>input pin</b> to connect them.</p><p>Orange wires carry qubits. Each output has one destination. Crossing wires stay separate. Select a wire or part and press Delete to remove it.</p><p><b>Assignment</b> opens the goal and a guided explanation. The Build page explains H and CNOT before you play. <b>H</b> makes a starting 0 have equal chances of reading 0 or 1; later gates can combine those paths. <b>CNOT</b> flips its target only when its control is 1 and does not measure either qubit.</p>' + sandbox + '<p><b>Step</b> reveals intermediate states. <b>Sample output</b> measures fresh preparations. Bitstrings read from the highest qubit down to A=q0.</p><div class="help-keys"><b>V / W</b><span>Select / wire</span><b>X H Z C S</b><span>Choose X / H / Z / CNOT / SWAP</span><b>⌘ Z / ⇧ ⌘ Z</b><span>Undo / redo</span><b>Delete / Esc</b><span>Remove / cancel</span><b>F / arrows</b><span>Fit / move selected part</span><b>Space + drag</b><span>Pan canvas</span><b>Pinch / ⌘ scroll</b><span>Zoom around pointer</span></div><p>Work saves in this browser when local storage is available. <b>Menu → Download backup</b> saves a portable copy. Keep <b>assets/music/</b> beside index.html for the ten Kevin MacLeod recordings. Qiskit export, the local Qiskit runner, and IonQ hardware runs are optional.</p>', [{ label: 'Back to game', primary: true, run: closeModal }]);
   }
   function deleteSelected() {
     if (!selected) return;
@@ -616,7 +692,7 @@
   $('map-button').onclick = openMap; $('map-back').onclick = () => openLevel(level.id);
   $('sandbox').onclick = () => openLevel('sandbox');
   $('demo').onclick = () => {
-    const enter = () => { closeModal(); openLevel('sandbox'); changeRegister(2); commit(C.solution('sandbox'), 'Bell demo loaded. Open Assignment for the explanation, or Step through the preparation.'); revealDock('state'); compute(); stepIndex = compiled.count; render(); fit(); };
+    const enter = () => { closeModal(); openLevel('sandbox'); if (project.settings.sandboxQubits !== 2) changeRegister(2); briefing(); commit(C.solution('sandbox'), 'Bell demo loaded. Read the gate guide, then build or inspect this circuit.'); revealDock('state'); compute(); stepIndex = compiled.count; render(); fit(); };
     const target = project.settings.sandboxQubits === 2 ? project.circuits.sandbox : project.sandboxes[2];
     if (target?.nodes.some(n => !n.locked)) modal('Load the Bell demo?', '<p>This replaces the two-qubit Sandbox circuit. Download a Backup first if you want to keep it. Other register sizes and campaign circuits stay saved. Undo restores the previous two-qubit circuit.</p>', [{ label: 'Cancel', run: closeModal }, { label: 'Load demo', primary: true, run: enter }]); else enter();
   };
@@ -625,6 +701,8 @@
   $('music-toggle').onclick = toggleMusic; $('map-music').onclick = toggleMusic;
   $('music-volume').oninput = () => { project.settings.volume = Number($('music-volume').value) / 100; audio.setVolume(project.settings.volume); persist(); };
   $('music-track').onchange = () => { project.settings.track = $('music-track').value; audio.setTrack(project.settings.track); persist(); renderAudio(); };
+  $('music-credits').onclick = showMusicCredits; $('credits').onclick = showCredits;
+  $('qpu-run').onclick = qpuConfirmation;
   document.addEventListener('visibilitychange', () => audio.visibility(document.hidden));
   $('toggle-dock').onclick = () => { project.settings.dockCollapsed = !project.settings.dockCollapsed; renderDock(); persist(); };
   $('check').onclick = check; $('run').onclick = run; $('step').onclick = () => { pause(); step(); };
@@ -714,7 +792,8 @@
   });
   document.documentElement.style.setProperty('--dock', project.settings.dock + 'px');
   compute(); render(); renderMap(); renderAudio(); renderEngine(); probeEngine(true); $('campaign').hidden = project.lastView === 'workbench';
+  refreshQuantumAvailability();
   requestAnimationFrame(() => { if (!$('campaign').hidden) return; if (!project.cameras[level.id]) fit(); });
-  if ($('campaign').hidden && level.number) { project.briefings[level.id] = true; persist(); briefing(); }
+  if ($('campaign').hidden && (level.number || level.id === 'sandbox')) { project.briefings[level.id] = true; persist(); briefing(); }
   if (restoreWarning) notify(restoreWarning);
 })();

@@ -121,7 +121,9 @@ MIT licensed. See `LICENSE`.
 ## Offline game build
 
 A self-contained, double-clickable build of the game lives in [`offline-game/`](offline-game/):
-open `offline-game/index.html` in Safari or Chrome — no server or install needed. It adds a
-Kevin MacLeod soundtrack (fetch once with `offline-game/music/get-soundtrack.command`; CC BY 4.0,
-see `offline-game/CREDITS.md`) and a live Qiskit runner (`offline-game/qiskit/runner.py`) that the
-game auto-detects and labels honestly. Its own README has the details; 69 automated tests included.
+open `offline-game/index.html` in Safari or Chrome — no server or install needed. It includes ten
+unchanged Kevin MacLeod tracks (CC BY 4.0, see `offline-game/assets/music/CREDITS.md`), a required
+beginner gate guide, and the original five-page primer and dictionary. Optional services include
+the auto-detected Qiskit simulator (`offline-game/qiskit/runner.py`) and a local IonQ QPU bridge
+(`offline-game/backend/`); real IonQ jobs require a server-side API key and may use paid credits.
+See its README and test report for setup and verification details.

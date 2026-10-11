@@ -1,29 +1,18 @@
-# Credits
+# Background music credits
 
-## Music
+These ten original MP3 recordings are included with Quantum Foundry for offline playback. Files are included unchanged. Each is by Kevin MacLeod and is licensed under Creative Commons Attribution 4.0 International (CC BY 4.0).
 
-The optional soundtrack (files in `music/`, fetched by
-`music/get-soundtrack.command`) consists of ten works by Kevin MacLeod,
-used under the Creative Commons: By Attribution 4.0 License
-(<http://creativecommons.org/licenses/by/4.0/>):
+License: https://creativecommons.org/licenses/by/4.0/
 
-- "Monkeys Spinning Monkeys" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 License
-- "Fluffing a Duck" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 License
-- "Sneaky Snitch" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 License
-- "Scheming Weasel" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 License
-- "Carefree" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 License
-- "Investigations" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 License
-- "Local Forecast - Elevator" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 License
-- "Wallpaper" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 License
-- "Amazing Plan" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 License
-- "Cipher" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 License
+- **Monkeys Spinning Monkeys** — “Monkeys Spinning Monkeys” Kevin MacLeod (incompetech.com), licensed under CC BY 4.0. [Track page](https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1400011). Source file: `monkeys-spinning-monkeys.mp3` (00:02:05).
+- **Fluffing a Duck** — “Fluffing a Duck” Kevin MacLeod (incompetech.com), licensed under CC BY 4.0. [Track page](https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100768). Source file: `fluffing-a-duck.mp3` (00:01:07).
+- **Carefree** — “Carefree” Kevin MacLeod (incompetech.com), licensed under CC BY 4.0. [Track page](https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1400037). Source file: `carefree.mp3` (00:03:25).
+- **Sneaky Snitch** — “Sneaky Snitch” Kevin MacLeod (incompetech.com), licensed under CC BY 4.0. [Track page](https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100772). Source file: `sneaky-snitch.mp3` (00:02:17).
+- **Cipher** — “Cipher” Kevin MacLeod (incompetech.com), licensed under CC BY 4.0. [Track page](https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100844). Source file: `cipher.mp3` (00:03:51).
+- **Scheming Weasel (faster version)** — “Scheming Weasel (faster version)” Kevin MacLeod (incompetech.com), licensed under CC BY 4.0. [Track page](https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100085). Source file: `scheming-weasel-fast.mp3` (00:01:29).
+- **Investigations** — “Investigations” Kevin MacLeod (incompetech.com), licensed under CC BY 4.0. [Track page](https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100646). Source file: `investigations.mp3` (00:01:34).
+- **Local Forecast** — “Local Forecast” Kevin MacLeod (incompetech.com), licensed under CC BY 4.0. [Track page](https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1300010). Source file: `local-forecast.mp3` (00:02:45).
+- **Merry Go** — “Merry Go” Kevin MacLeod (incompetech.com), licensed under CC BY 4.0. [Track page](https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100731). Source file: `merry-go.mp3` (00:02:00).
+- **Happy Bee** — “Happy Bee” Kevin MacLeod (incompetech.com), licensed under CC BY 4.0. [Track page](https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1300014). Source file: `happy-bee.mp3` (00:05:02).
 
-The two "Original score" tracks (Copper Signals, Night Shift) are procedural
-WebAudio compositions written for this game; no recordings are used.
-
-## Software
-
-- Game, simulator, compiler, and tests: original code for the Qollab × IonQ
-  hackathon (MIT License, see LICENSE).
-- Qiskit integration: `qiskit/runner.py` uses [Qiskit](https://www.ibm.com/quantum/qiskit)
-  (Apache 2.0) for statevector evolution and measurement sampling.
+Catalog metadata: https://incompetech.com/music/royalty-free/pieces.json

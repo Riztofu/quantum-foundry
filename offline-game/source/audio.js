@@ -1,6 +1,6 @@
 // Soundtrack engine with two kinds of track:
 //  - "score": the original procedural WebAudio score (no files, always works offline)
-//  - "file":  Kevin MacLeod (incompetech.com) MP3s in the music/ folder,
+//  - "file":  bundled Kevin MacLeod (incompetech.com) MP3s in assets/music/,
 //             licensed Creative Commons: By Attribution 4.0 — see CREDITS.md.
 //             If a file is missing, playback falls back to the original score.
 (function (root) {
@@ -10,22 +10,22 @@
     night: { title: 'Night Shift', beat: 1, chords: [[45,52,59],[41,48,55],[48,55,62],[43,50,57]], melody: [69,null,null,76,null,72,null,null,67,null,null,74,null,71,null,null] }
   });
   const CREDIT = 'Kevin MacLeod (incompetech.com) · CC BY 4.0';
-  // Canonical file names: the music/ fetch script saves under exactly these names.
+  // Original recordings are bundled unchanged for offline play.
   const playlist = Object.freeze([
-    ['km-monkeys', 'Monkeys Spinning Monkeys', 'Monkeys Spinning Monkeys.mp3'],
-    ['km-fluffing', 'Fluffing a Duck', 'Fluffing a Duck.mp3'],
-    ['km-sneaky', 'Sneaky Snitch', 'Sneaky Snitch.mp3'],
-    ['km-weasel', 'Scheming Weasel', 'Scheming Weasel.mp3'],
-    ['km-carefree', 'Carefree', 'Carefree.mp3'],
-    ['km-investigations', 'Investigations', 'Investigations.mp3'],
-    ['km-elevator', 'Local Forecast — Elevator', 'Local Forecast - Elevator.mp3'],
-    ['km-wallpaper', 'Wallpaper', 'Wallpaper.mp3'],
-    ['km-amazing', 'Amazing Plan', 'Amazing Plan.mp3'],
-    ['km-cipher', 'Cipher', 'Cipher.mp3']
+    ['km-monkeys', 'Monkeys Spinning Monkeys', 'assets/music/monkeys-spinning-monkeys.mp3', 'USUAN1400011'],
+    ['km-fluffing', 'Fluffing a Duck', 'assets/music/fluffing-a-duck.mp3', 'USUAN1100768'],
+    ['km-carefree', 'Carefree', 'assets/music/carefree.mp3', 'USUAN1400037'],
+    ['km-sneaky', 'Sneaky Snitch', 'assets/music/sneaky-snitch.mp3', 'USUAN1100772'],
+    ['km-cipher', 'Cipher', 'assets/music/cipher.mp3', 'USUAN1100844'],
+    ['km-weasel', 'Scheming Weasel (faster version)', 'assets/music/scheming-weasel-fast.mp3', 'USUAN1100085'],
+    ['km-investigations', 'Investigations', 'assets/music/investigations.mp3', 'USUAN1100646'],
+    ['km-forecast', 'Local Forecast', 'assets/music/local-forecast.mp3', 'USUAN1300010'],
+    ['km-merry', 'Merry Go', 'assets/music/merry-go.mp3', 'USUAN1100731'],
+    ['km-bee', 'Happy Bee', 'assets/music/happy-bee.mp3', 'USUAN1300014']
   ]);
   const tracks = {};
   for (const id of Object.keys(scores)) tracks[id] = { title: scores[id].title, kind: 'score' };
-  for (const [id, title, file] of playlist) tracks[id] = { title, kind: 'file', file: 'music/' + file, credit: CREDIT };
+  for (const [id, title, file, isrc] of playlist) tracks[id] = { title, kind: 'file', file, isrc, credit: CREDIT };
   Object.freeze(tracks);
   const playlistIds = playlist.map(([id]) => id);
 
@@ -77,7 +77,7 @@
       if (track === id) {
         const title = tracks[id].title;
         stop(); track = 'copper'; elementTrack = null;
-        note = '“' + title + '” is not in the music folder (see music/README) — playing the original score.';
+        note = '“' + title + '” could not be loaded — playing the original score.';
         if (enabled) startScore(); else change();
       } else change();
     }
@@ -101,7 +101,7 @@
         missing.add(track);
         const title = tracks[track].title;
         track = 'copper'; elementTrack = null;
-        note = AudioEl ? '“' + title + '” is not in the music folder (see music/README) — playing the original score.' : '';
+        note = AudioEl ? '“' + title + '” could not be loaded — playing the original score.' : '';
         return startScore();
       }
       const request = generation, id = track;
@@ -145,6 +145,6 @@
       stop
     });
   }
-  root.FoundryAudio = { create, tracks, scores, playlist: playlistIds, credit: CREDIT };
+  root.FoundryAudio = { create, tracks, scores, playlist: playlistIds, credit: CREDIT, licenseUrl: 'https://creativecommons.org/licenses/by/4.0/' };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.FoundryAudio;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -7,14 +7,14 @@
 3. Double-click **index.html**. If another app opens it, Control-click → Open With → Safari or Google Chrome.
 4. Choose **First Connection**, or **Bell demo** for an immediate working example.
 
-No installation, server, terminal, account, or internet connection is needed. Code, graphics, styles, teaching examples, and the original synthesized soundtrack are embedded in index.html. Safari 14.1+ or a current Chrome is the intended browser; actual Mac/browser verification remains pending.
+The game plays without an installation, server, account, or internet connection. Keep the extracted folder together: the ten optional Kevin MacLeod tracks live in `assets/music/`, while two original synthesized scores remain built in. Safari 14.1+ or a current Chrome is the intended browser; actual Mac/browser verification remains pending.
 
 The optional **Launch-Quantum-Foundry.command** begins with `#!/bin/bash` and opens the adjacent HTML file using macOS `open`. If macOS refuses that launcher, open index.html directly.
 
 ## What is new
 
 - **A ground-up teaching layer**: 🧭 **Start from zero** on the map is a five-page primer assuming no background at all (what a bit is, amplitudes, measurement, interference, how the workshop works); every mission briefing opens **How it works** with a NEW WORDS panel defining each term before it is used; and **Menu ≡ → Dictionary** holds all 26 terms in plain words.
-- **Ten Kevin MacLeod soundtrack tracks** (CC BY 4.0, see CREDITS.md) with playlist auto-advance, plus the two original scores — fetch the MP3s once with `music/get-soundtrack.command`.
+- **Ten bundled Kevin MacLeod soundtrack tracks** (CC BY 4.0; see `assets/music/CREDITS.md`) with playlist auto-advance, plus the two original scores.
 - **A live Qiskit runner** (`qiskit/runner.py`): while it runs, Sample output is measured by real Qiskit and the engine tag reads QISKIT RUNNER · LIVE.
 
 - **16 working missions in two chapters**, progressing from a wire to communication, routing, registers, and quantum query algorithms.
@@ -43,7 +43,7 @@ Keyboard shortcuts with canvas focus: **V** select, **W** wire, **X/H/Z/C/S** ch
 
 Music begins after clicking **Build circuit**, entering Sandbox, or clicking **♫**. Browsers require a user gesture before audio can start. The ♫ buttons start or mute music. **Menu ≡** contains the track selector and a volume slider; preferences are saved with your project. Music pauses when the tab is hidden and resumes when it returns, if enabled. If audio is unavailable, the game continues normally.
 
-The soundtrack is **ten Kevin MacLeod tracks** — Monkeys Spinning Monkeys, Fluffing a Duck, Sneaky Snitch, Scheming Weasel, Carefree, Investigations, Local Forecast — Elevator, Wallpaper, Amazing Plan, and Cipher — played in order with automatic advance, all licensed Creative Commons: By Attribution 4.0 (attributions in `CREDITS.md`). The MP3s are not bundled: run `music/get-soundtrack.command` once (double-click it on a Mac) to download them into the `music/` folder. Any track that is missing simply falls back to the game's two built-in original scores (Copper Signals, Night Shift), which also remain selectable.
+The ten Kevin MacLeod tracks are Monkeys Spinning Monkeys, Fluffing a Duck, Carefree, Sneaky Snitch, Cipher, Scheming Weasel (faster version), Investigations, Local Forecast, Merry Go, and Happy Bee. They play in order with automatic advance and are licensed under Creative Commons Attribution 4.0; see `assets/music/CREDITS.md` for track links. The unchanged MP3s are bundled for offline playback. If one cannot load, the game falls back to its two original scores (Copper Signals, Night Shift), which remain selectable.
 
 ## Campaign
 
@@ -74,7 +74,7 @@ Work saves automatically in the same browser when local storage is available. Lo
 
 **Menu ≡ → Download backup** creates a portable JSON copy of mission circuits, progress, all Sandbox sizes, component versions, best scores, selected inputs, cameras, layout, and music preferences. **Import backup** restores it on another computer. Backups from the earlier version-3 prototype remain compatible. When local storage is unavailable, the game remains playable and asks you to keep a manual backup.
 
-Send your friend the ZIP or just index.html. Keep a separate backup JSON before replacing or moving an older game file.
+Send your friend the ZIP or full extracted folder so `assets/music/` stays beside `index.html`. The game itself still works if the MP3 folder is missing, using the two original scores. Keep a separate backup JSON before replacing or moving an older game file.
 
 ## Simulation scope
 
@@ -86,9 +86,9 @@ State preparation compares the complete state up to global phase. Reusable opera
 
 The query fixtures are ideal reversible oracles. A query is counted even when a selected oracle expands to identity. Their gate expansions are inspectable and included in export; one query does not imply zero implementation cost. Superdense coding requires both a previously shared entangled pair and one transmitted qubit.
 
-## Qiskit and Qollab
+## Qiskit, Qollab, and IonQ
 
-The game has two Qiskit integrations; playing never requires either.
+The game includes a Qiskit simulator and export, plus an optional physical IonQ hardware bridge. Playing never requires these services.
 
 **Live Qiskit runner.** `qiskit/runner.py` is a small local web service that executes the game's circuits on real Qiskit (`Statevector` evolution and measurement sampling):
 
@@ -101,7 +101,7 @@ While it runs, the tag under **Check circuit** switches from *IDEAL SIMULATION* 
 
 **Qiskit export.** **Menu ≡ → Export to Qiskit** downloads Python beginning with `#!/usr/bin/env python3`. It prepares the selected input, expands saved blocks and the selected oracle, prints the ideal state probabilities, and adds measurements.
 
-Qollab submission and physical hardware execution are separate integrations. This package does not submit to Qollab automatically.
+**IonQ hardware.** The menu can submit the current circuit and one selected input to a physical IonQ QPU through the optional local service in `backend/`. The game shows sampled device counts alongside the ideal prediction; this one-input hardware run does not replace the exact campaign checks. A server-side IonQ key and QPU access are required, and real jobs may use paid credits. `backend/requirements-qollab.txt` provides the alternate pinned Qollab Qiskit and IonQ-provider forks. See [`backend/README.md`](backend/README.md) before starting the service.
 
 ## Optional development
 

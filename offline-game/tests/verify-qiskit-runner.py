@@ -6,6 +6,7 @@ game's full gate set (X, H, Z, CX, SWAP) on 1-6 qubits are simulated by both
 engines; amplitudes must agree to 1e-10 and sampled counts must sum to shots.
 """
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -34,7 +35,10 @@ node_code = (
     "process.stdin.on('end',()=>process.stdout.write(JSON.stringify("
     "JSON.parse(s).map(f=>C.evolve(f.gates,f.n,f.initial,false).state))));"
 )
-result = subprocess.run(["node", "-e", node_code], cwd=root, input=json.dumps(fixtures),
+runtime = shutil.which("node") or shutil.which("bun")
+if not runtime:
+    raise SystemExit("Install Node.js or Bun to run the Qiskit comparison.")
+result = subprocess.run([runtime, "-e", node_code], cwd=root, input=json.dumps(fixtures),
                         capture_output=True, text=True, check=True)
 locals_ = json.loads(result.stdout)
 

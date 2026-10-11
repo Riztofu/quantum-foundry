@@ -23,7 +23,7 @@ Prepare the completed campaign circuits beforehand in this browser, and use Menu
 - **0:20–0:50:** reopen The Hidden Sign. Restart, step through H and Z, and show the negative amplitude. The final H converts the sign difference into output 1.
 - **0:50–1:25:** reopen A Shared Pair. Show H and ControlledFlip, then Check circuit. Inspect BellPrep in the component workshop to show it contains the actual saved schematic.
 - **1:25–2:20:** reopen Quantum Courier. Show the reused preparation and decoder blocks. Choose 11, Sample output, and show the recovered 11. Check circuit verifies all four messages.
-- **2:20–2:45:** start `python3 qiskit/runner.py` beforehand so the tag under Check circuit reads **QISKIT RUNNER · LIVE**; press Sample output and point out the Measurements panel saying the counts were sampled by Qiskit and match the local preview. Explain the resource: one transmitted qubit and an entangled pair shared beforehand. Menu → Export to Qiskit shows the same circuit as runnable Python. Qollab submission itself is a separate step.
+- **2:20–2:45:** use Menu → Export to Qiskit. Explain the resource: one transmitted qubit and an entangled pair shared beforehand. The optional local IonQ service can submit one selected input to a physical QPU; those noisy samples do not verify every input.
 
 For an immediate short preview without campaign preparation, Bell Demo opens a populated Bell circuit in Sandbox and does not grant progress.
 
@@ -49,4 +49,4 @@ Prepare a completed project and keep its JSON backup before presenting. Turn mus
 - **0:50–1:20:** open Across the Register. Inspect your saved Swap, then show the seven-gate neighboring implementation and preserved middle qubit.
 - **1:20–1:50:** open A Four-Way Link. Step through the register and sample 0000/1111. Distinguish joint outcomes from single-qubit 50/50 readouts.
 - **1:50–2:40:** open The Hidden Register. Choose 101, show the two joint outcomes, and explain that C B A contains the secret while D stays in the minus state. Check all eight secrets.
-- **2:40–3:00:** with qiskit/runner.py running, show Sample output being measured by real Qiskit (the engine tag and the Measurements caption say so), then export the circuit to Qiskit Python. A Qollab submission run is a separate step.
+- **2:40–3:00:** export the selected circuit to Qiskit. If the local IonQ service is configured, demonstrate one selected input on the QPU and explain that hardware sampling is noisy and complements the exact game check.

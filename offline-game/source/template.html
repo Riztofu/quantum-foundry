@@ -24,7 +24,7 @@
       </div>
       <div class="toolbar-spacer"></div>
       <button id="assignment" class="assignment-button" title="Goal, explanation, and guided experiment">Assignment <span aria-hidden="true">▤</span></button>
-      <button id="music-toggle" class="icon-button music-toggle" aria-label="Start music" aria-pressed="false" title="Original ambient music">♫</button>
+      <button id="music-toggle" class="icon-button music-toggle" aria-label="Start music" aria-pressed="false" title="Background music">♫</button>
       <div class="menu-anchor">
         <button id="menu-button" class="icon-button" aria-label="Game menu" aria-expanded="false" aria-controls="game-menu">≡</button>
         <div id="game-menu" class="game-menu" hidden>
@@ -35,10 +35,15 @@
           <button id="qiskit-connect" title="Looks for qiskit/runner.py on 127.0.0.1:8765">Connect Qiskit runner <span>⇄</span></button>
           <hr>
           <span class="eyebrow">SOUNDTRACK</span>
-          <label class="audio-setting" for="music-track">Track<select id="music-track"><option value="copper">Copper Signals</option><option value="night">Night Shift</option></select></label>
+          <label class="audio-setting" for="music-track">Track<select id="music-track"></select></label>
           <label class="audio-setting" for="music-volume">Volume <span id="music-volume-label">22%</span><input id="music-volume" type="range" min="0" max="60" step="1" value="22"></label>
           <span id="music-status" class="music-status">Music starts when you enter a mission.</span>
-          <span class="music-credit">MP3 tracks by Kevin MacLeod (incompetech.com), CC BY 4.0 — attributions in CREDITS.md. Two original scores included.</span>
+          <button id="music-credits">Music credits <span>♪</span></button>
+          <hr>
+          <span class="eyebrow">REAL QUANTUM HARDWARE</span>
+          <button id="qpu-run" disabled>Run current input on IonQ <span>QPU</span></button>
+          <span id="qpu-status" class="music-status">Set up the optional local IonQ service to enable hardware runs.</span>
+          <button id="credits">Credits</button>
           <hr>
           <button id="reset-circuit">Reset this circuit</button>
           <button id="glossary-button">Dictionary <span>A–Z</span></button>
