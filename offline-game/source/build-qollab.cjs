@@ -15,10 +15,23 @@ const write = (name, text) => fs.writeFileSync(path.join(out, name), text);
 const template = read(path.join(source, 'template.html'));
 const body = template.slice(template.indexOf('<body>') + 6, template.indexOf('<script>'))
   .replace(/<noscript>[\s\S]*?<\/noscript>/, '').trim();
-write('index.html', `<div id="qf-qollab">\n${body}\n</div>\n`);
-write('main.css', read(path.join(source, 'styles.css')) + read(path.join(source, 'qollab', 'overrides.css')));
+write('index.html', `<div id="qf-qollab"><div id="qf-stage">\n${body}\n</div></div>\n`);
+// The stage is always 1600 × 820 (scaled by stage.js), so screen-size rules would only misfire:
+// drop @media blocks that test width or height; keep the rest (e.g. prefers-reduced-motion).
+function stripViewportMedia(css) {
+  let out = '', i = 0;
+  for (let at = css.indexOf('@media', i); at !== -1; at = css.indexOf('@media', i)) {
+    const open = css.indexOf('{', at); let depth = 0, end = open;
+    for (; end < css.length; end++) { if (css[end] === '{') depth++; else if (css[end] === '}' && --depth === 0) break; }
+    out += css.slice(i, at);
+    if (!/(min|max)-(width|height)/.test(css.slice(at, open))) out += css.slice(at, end + 1);
+    i = end + 1;
+  }
+  return out + css.slice(i);
+}
+write('main.css', stripViewportMedia(read(path.join(source, 'styles.css'))) + read(path.join(source, 'qollab', 'overrides.css')));
 for (const file of ['core.js', 'lessons.js', 'audio.js', 'app.js']) write(file, read(path.join(source, file)));
-for (const file of ['main.js', 'host.js', 'README.md']) write(file, read(path.join(source, 'qollab', file)));
+for (const file of ['main.js', 'host.js', 'stage.js', 'README.md']) write(file, read(path.join(source, 'qollab', file)));
 write('config.js', read(path.join(source, 'qollab', 'config.js')).replace('__MUSIC_BASE__', MUSIC_BASE));
 write('LICENSE', read(path.join(game, 'LICENSE')));
 write('foundry/__init__.py', '"""Quantum Foundry\'s Qiskit engine for Qollab."""\n');

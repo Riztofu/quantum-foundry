@@ -1,8 +1,9 @@
 
-/* ── Qollab: the page is an embedded frame above the console ── */
-html,body{height:auto;overflow:visible;background:var(--bg)}
-#qf-qollab{position:relative;height:820px;overflow:hidden;background:var(--bg)}
-#qf-qollab #app{height:100%}
-#qf-qollab .campaign,#qf-qollab .modal-backdrop{position:absolute}
-#qf-qollab .toast{position:absolute}
-#qf-qollab .modal{max-height:760px}
+/* ── Qollab: a fixed 1600 × 820 stage, scaled to the preview's width by stage.js ── */
+html,body{height:auto;overflow-x:hidden;overflow-y:auto;background:var(--bg);margin:0}
+#qf-qollab{position:relative;width:100%;height:820px;overflow:hidden;background:var(--bg)}
+#qf-stage{position:absolute;left:0;top:0;width:1600px;height:820px;transform-origin:0 0}
+#qf-stage #app{height:100%}
+#qf-stage .campaign,#qf-stage .modal-backdrop,#qf-stage .toast{position:absolute}
+#qf-stage .campaign{padding:25px 210px 15px}
+#qf-stage .modal{max-height:760px}

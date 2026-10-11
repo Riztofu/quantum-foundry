@@ -3,6 +3,7 @@
 // Check circuit and samples measurements, and "Run on …" uses the backend you picked in
 // the Select QPU dialog. The game stays live above this console until you press Stop.
 import './config.js';
+import './stage.js';
 import './core.js';
 import './lessons.js';
 import './audio.js';

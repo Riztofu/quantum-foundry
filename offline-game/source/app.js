@@ -103,7 +103,10 @@
     if (!from.length) return; to.push(C.clone(graph)); graph = from.pop(); selected = null; pendingWire = null; placement = null; invalidate(); persist(); render();
   }
   function chooseCase(index) { pause(); caseIndex = index; project.inputs[level.id] = index; stepIndex = 0; counts = null; compute(); render(); persist(); }
-  function worldPoint(event) { const b = svg.getBoundingClientRect(); return { x: (event.clientX - b.left - camera.x) / camera.zoom, y: (event.clientY - b.top - camera.y) / camera.zoom }; }
+  // On-screen size ÷ layout size: 1 normally, the stage scale when an embedding (the Qollab build) scales the whole page.
+  const uiScale = () => { const b = svg.getBoundingClientRect(); return svg.clientWidth && b.width ? b.width / svg.clientWidth : 1; };
+  const layoutHeight = el => el.clientHeight || el.getBoundingClientRect().height;
+  function worldPoint(event) { const b = svg.getBoundingClientRect(), s = uiScale(); return { x: ((event.clientX - b.left) / s - camera.x) / camera.zoom, y: ((event.clientY - b.top) / s - camera.y) / camera.zoom }; }
   function geometry(node, pool = modules()) { const a = C.arity(node, pool); return { w: 96, h: 80 + (a - 1) * 120 }; }
   function pin(node, dir, port, pool = modules()) { return { x: node.x + (dir === 'out' ? geometry(node, pool).w : 0), y: node.y + 40 + port * 120 }; }
   function route(a, b) {
@@ -181,7 +184,7 @@
     $('canvas-help').textContent = level.id === 'link' ? 'Click INPUT A’s right pin, then OUTPUT A’s left pin' : pendingWire ? 'Click a compatible pin to finish this wire' : 'Move parts by dragging · scroll to pan · pinch / ⌘ scroll to zoom';
   }
   function fit() {
-    const b = svg.getBoundingClientRect(); if (!b.width || !b.height) return;
+    const r = svg.getBoundingClientRect(), s = uiScale(), b = { width: r.width / s, height: r.height / s }; if (!b.width || !b.height) return;
     const minX = Math.min(...graph.nodes.map(n => n.x)) - 60, maxX = Math.max(...graph.nodes.map(n => n.x + 96)) + 60;
     const minY = Math.min(...graph.nodes.map(n => n.y)) - 70, maxY = Math.max(...graph.nodes.map(n => n.y + geometry(n).h)) + 110;
     camera.zoom = Math.max(.3, Math.min(1.3, b.width / (maxX - minX), b.height / (maxY - minY)));
@@ -189,7 +192,7 @@
     renderCanvas(); persist();
   }
   function zoomBy(factor, x, y) {
-    const b = svg.getBoundingClientRect(), px = x ?? b.width / 2, py = y ?? b.height / 2, old = camera.zoom;
+    const r = svg.getBoundingClientRect(), s = uiScale(), px = x ?? r.width / s / 2, py = y ?? r.height / s / 2, old = camera.zoom;
     camera.zoom = Math.max(.3, Math.min(2, old * factor)); camera.x = px - (px - camera.x) * camera.zoom / old; camera.y = py - (py - camera.y) * camera.zoom / old;
     renderCanvas(); persist();
   }
@@ -846,7 +849,7 @@
   });
   svg.addEventListener('pointermove', e => {
     pointer = worldPoint(e);
-    if (drag?.type === 'pan') { camera.x = drag.x + e.clientX - drag.startX; camera.y = drag.y + e.clientY - drag.startY; renderCanvas(); }
+    if (drag?.type === 'pan') { const s = uiScale(); camera.x = drag.x + (e.clientX - drag.startX) / s; camera.y = drag.y + (e.clientY - drag.startY) / s; renderCanvas(); }
     else if (drag?.type === 'move') {
       const node = graph.nodes.find(n => n.id === drag.id), x = Math.max(-18000, Math.min(18000, Math.round((pointer.x - drag.dx) / 20) * 20)), y = Math.max(-18000, Math.min(18000, Math.round((pointer.y - drag.dy) / 20) * 20));
       if (node.x !== x || node.y !== y) { node.x = x; node.y = y; drag.changed = true; renderCanvas(); }
@@ -862,7 +865,7 @@
   svg.addEventListener('contextmenu', e => e.preventDefault());
   svg.addEventListener('wheel', e => {
     e.preventDefault(); const b = svg.getBoundingClientRect();
-    if (e.ctrlKey || e.metaKey) zoomBy(Math.exp(-e.deltaY * .008), e.clientX - b.left, e.clientY - b.top);
+    if (e.ctrlKey || e.metaKey) zoomBy(Math.exp(-e.deltaY * .008), (e.clientX - b.left) / uiScale(), (e.clientY - b.top) / uiScale());
     else { camera.x -= e.deltaX; camera.y -= e.deltaY; renderCanvas(); persist(); }
   }, { passive: false });
   svg.addEventListener('keydown', e => {
@@ -946,9 +949,9 @@
     importText(await file.text());
   };
   const resizer = $('dock-resizer'); let dockDrag = null;
-  const maxDockHeight = () => Math.max(130, Math.min(420, window.innerHeight / 2, document.querySelector('.workspace').getBoundingClientRect().height - 220));
-  resizer.addEventListener('pointerdown', e => { dockDrag = { y: e.clientY, height: $('dock').getBoundingClientRect().height }; resizer.setPointerCapture(e.pointerId); e.preventDefault(); });
-  resizer.addEventListener('pointermove', e => { if (!dockDrag) return; project.settings.dock = Math.max(130, Math.min(maxDockHeight(), dockDrag.height + dockDrag.y - e.clientY)); document.documentElement.style.setProperty('--dock', project.settings.dock + 'px'); });
+  const maxDockHeight = () => Math.max(130, Math.min(420, window.innerHeight / 2, layoutHeight(document.querySelector('.workspace')) - 220));
+  resizer.addEventListener('pointerdown', e => { dockDrag = { y: e.clientY, height: layoutHeight($('dock')), scale: uiScale() }; resizer.setPointerCapture(e.pointerId); e.preventDefault(); });
+  resizer.addEventListener('pointermove', e => { if (!dockDrag) return; project.settings.dock = Math.max(130, Math.min(maxDockHeight(), dockDrag.height + (dockDrag.y - e.clientY) / dockDrag.scale)); document.documentElement.style.setProperty('--dock', project.settings.dock + 'px'); });
   resizer.addEventListener('pointerup', () => { dockDrag = null; persist(); });
   resizer.addEventListener('keydown', e => { if (['ArrowUp', 'ArrowDown'].includes(e.key)) { e.preventDefault(); project.settings.dock = Math.max(130, Math.min(maxDockHeight(), project.settings.dock + (e.key === 'ArrowUp' ? 20 : -20))); document.documentElement.style.setProperty('--dock', project.settings.dock + 'px'); persist(); } });
   document.addEventListener('keydown', e => {
