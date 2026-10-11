@@ -111,6 +111,7 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
 .pws-fill{fill:#63cdd6}
 .pws-fill2{fill:#63cdd6;opacity:.55}
 .pw-row-tally{display:grid;grid-template-columns:52px minmax(90px,1fr) 46px;align-items:center;gap:10px;margin:7px 0;font-family:ui-monospace,monospace;font-size:11px}
+.node.fixed.input .node-handle,.node.fixed.output .node-handle{cursor:grab}
 </style>
 </head>
 <body>
@@ -1311,6 +1312,8 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
     const enable = !audio.status().playing; project.settings.music = enable; audio.setEnabled(enable);
     if (enable && !await audio.start()) notify('Audio could not start. Try the music button in Safari or Chrome.'); persist(); renderAudio();
   }
+  // Terminals are fixed in role and wiring but may be dragged; other fixtures stay where the experiment puts them.
+  const movable = node => !node.locked || node.type === 'INPUT' || node.type === 'OUTPUT';
   function nextId(prefix) { let id; do { id = prefix + (++uid); } while (graph.nodes.some(n => n.id === id) || modules().some(m => m.id === id)); return id; }
   function persist() {
     project.current = level.id; project.circuits[level.id] = C.clone(graph); project.cameras[level.id] = C.clone(camera);
@@ -1346,7 +1349,7 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
     const a = C.arity(node, pool), { w, h } = geometry(node, pool), p = C.ports(node, pool), m = node.type === 'MODULE' ? pool.find(m => m.id === node.moduleId) : null;
     const name = m ? m.name : node.label || ({ CX: 'CNOT', ENCODE: 'ENCODE', TRANSFER: 'SEND A' }[node.type] || node.type);
     const cls = ['node', node.locked ? 'fixed' : '', node.type.toLowerCase(), !options.readonly && selected?.type === 'node' && selected.id === node.id ? 'selected' : '', !options.readonly && compiled?.gates[stepIndex - 1]?.nodeId === node.id ? 'executing' : '', !options.readonly && attempted && graphError?.nodeId === node.id ? 'problem' : ''].join(' ');
-    let html = `<g class="${cls}" data-node="${esc(node.id)}" transform="translate(${node.x} ${node.y})"><title>${esc(name)}${node.locked ? ' · fixed assignment part' : ''}</title><rect class="node-body node-handle" x="0" y="0" width="${w}" height="${h}" rx="1"/>`;
+    let html = `<g class="${cls}" data-node="${esc(node.id)}" transform="translate(${node.x} ${node.y})"><title>${esc(name)}${node.locked ? movable(node) ? ' · fixed terminal · drag to move' : ' · fixed assignment part' : ''}</title><rect class="node-body node-handle" x="0" y="0" width="${w}" height="${h}" rx="1"/>`;
     if (node.type === 'CX') {
       html += '<path class="gate-symbol" d="M 48 46 V 82 M 48 120 V 149 M 39 160 H 57 M 48 151 V 169"/><circle class="gate-symbol-dot" cx="48" cy="40" r="4"/><circle class="gate-symbol" cx="48" cy="160" r="12"/><text class="node-small-label" x="48" y="101" text-anchor="middle">CNOT</text><text class="node-meta" x="48" y="115" text-anchor="middle">CONTROL → TARGET</text>';
     } else if (m) {
@@ -1474,7 +1477,7 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
         const m = node.type === 'MODULE' ? modules().find(m => m.id === node.moduleId) : null;
         const title = m ? m.name : node.label || node.type;
         const explanation = {X:'X flips 0 to 1 and 1 to 0. It does not measure the qubit. Two X gates undo each other.',H:'H gives a starting 0 two equal quantum paths. A readout has equal chances; another H brings a starting 0 back.',Z:'Z changes the sign on the 1 path. A later gate can make that change affect the readout.',SWAP:'Exchanges the states of two paths. It uses three CNOT gates; crossing wires alone cannot do this.',ORACLE:'One hidden rule is selected for each test. Your circuit must work for every selected rule.',CX:'CNOT checks the upper control without measuring it. If control is 1, the lower target flips; if control is 0, it stays. The control never changes.',ENCODE:'For message cd, Alice changes A using its two message bits.',TRANSFER:'Alice sends A to Bob, who already has B from the shared pair.',INPUT:'Starts the circuit with the selected bits. For shared-pair inputs, A and B start together.',OUTPUT:'End of this path. Read bitstrings from the highest qubit down to A = q0.'}[node.type];
-        $('dock-content').innerHTML = `<div class="inspector"><div><h3>${esc(title)}</h3><p>${C.arity(node, modules())} qubit${C.arity(node, modules()) === 1 ? '' : 's'} · ${node.locked ? 'fixed assignment part' : 'moveable component'}${m ? ' · ' + m.gates.length + ' primitive gates' : ''}</p><p>${m ? m.kind === 'BellPrep' ? 'Verified preparation from |00⟩. The input assumption is part of its contract.' : 'Saved circuit: ' + esc(m.kind) : esc(explanation || 'Connections define the operation. Position affects the drawing only.')}</p>${m ? `<button class="secondary" data-inspect="${esc(m.id)}">Inspect inside →</button>` : ''}${!node.locked ? ' <button class="text-button" data-action="duplicate-selected">Duplicate</button> <button class="text-button" data-action="delete-selected">Delete part</button>' : ''}</div></div>`;
+        $('dock-content').innerHTML = `<div class="inspector"><div><h3>${esc(title)}</h3><p>${C.arity(node, modules())} qubit${C.arity(node, modules()) === 1 ? '' : 's'} · ${node.locked ? movable(node) ? 'fixed terminal · drag or use arrow keys to move' : 'fixed assignment part' : 'moveable component'}${m ? ' · ' + m.gates.length + ' primitive gates' : ''}</p><p>${m ? m.kind === 'BellPrep' ? 'Verified preparation from |00⟩. The input assumption is part of its contract.' : 'Saved circuit: ' + esc(m.kind) : esc(explanation || 'Connections define the operation. Position affects the drawing only.')}</p>${m ? `<button class="secondary" data-inspect="${esc(m.id)}">Inspect inside →</button>` : ''}${!node.locked ? ' <button class="text-button" data-action="duplicate-selected">Duplicate</button> <button class="text-button" data-action="delete-selected">Delete part</button>' : ''}</div></div>`;
       }
     }
   }
@@ -2021,7 +2024,7 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
     if (nodeTarget && nodeTarget.dataset.node !== 'ghost') {
       e.preventDefault(); svg.focus(); placement = null; pendingWire = null;
       const node = graph.nodes.find(n => n.id === nodeTarget.dataset.node); selected = { type: 'node', id: node.id }; revealDock('selected');
-      if (!node.locked) { pause(); svg.setPointerCapture(e.pointerId); drag = { type: 'move', id: node.id, dx: p.x - node.x, dy: p.y - node.y, before: C.clone(graph), changed: false }; }
+      if (movable(node)) { pause(); svg.setPointerCapture(e.pointerId); drag = { type: 'move', id: node.id, dx: p.x - node.x, dy: p.y - node.y, before: C.clone(graph), changed: false }; }
       render(); return;
     }
     if (edgeTarget) { placement = null; pendingWire = null; selected = { type: 'edge', id: edgeTarget.dataset.edge }; renderCanvas(); renderDock(); renderPalette(); svg.focus(); return; }
@@ -2175,7 +2178,7 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
     else if (key === 'F') { e.preventDefault(); fit(); }
     else if (['X', 'H', 'Z', 'C', 'S'].includes(key)) { const type = key === 'C' ? 'CX' : key === 'S' ? 'SWAP' : key; if (level.parts.includes(type) && C.arity({type}) <= level.qubits) selectPart(type); }
     else if (e.key.startsWith('Arrow') && selected?.type === 'node') {
-      const n = graph.nodes.find(n => n.id === selected.id); if (n?.locked) return;
+      const n = graph.nodes.find(n => n.id === selected.id); if (!n || !movable(n)) return;
       e.preventDefault(); const next = C.clone(graph), node = next.nodes.find(n => n.id === selected.id); node.x = Math.max(-18000, Math.min(18000, node.x + (e.key === 'ArrowRight' ? 20 : e.key === 'ArrowLeft' ? -20 : 0))); node.y = Math.max(-18000, Math.min(18000, node.y + (e.key === 'ArrowDown' ? 20 : e.key === 'ArrowUp' ? -20 : 0))); commit(next);
     }
   });

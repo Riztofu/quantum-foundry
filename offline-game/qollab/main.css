@@ -103,6 +103,7 @@ button.simulator-tag{border:0;background:none;padding:2px 0;cursor:pointer;borde
 .pws-fill{fill:#63cdd6}
 .pws-fill2{fill:#63cdd6;opacity:.55}
 .pw-row-tally{display:grid;grid-template-columns:52px minmax(90px,1fr) 46px;align-items:center;gap:10px;margin:7px 0;font-family:ui-monospace,monospace;font-size:11px}
+.node.fixed.input .node-handle,.node.fixed.output .node-handle{cursor:grab}
 
 /* ── Qollab: the page is an embedded frame above the console ── */
 html,body{height:auto;overflow:visible;background:var(--bg)}

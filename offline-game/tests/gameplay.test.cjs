@@ -337,3 +337,32 @@ test('the primer widgets demonstrate squaring, sampling, and interference intera
   await e.query('[data-primer-flip]').click();
   assert.match(e.get('pw-interf-view').textContent, /impossible — the paths cancelled/);
 });
+
+test('INPUT and OUTPUT terminals can be moved but not deleted, and moving them never changes grading', async () => {
+  const e = createEnvironment(); await e.open('link');
+  const at = id => e.state().graph.nodes.find(n => n.id === id);
+  // Parts snap to the 20-unit grid relative to the grab point (grabbed 20 units inside the corner).
+  await e.query('[data-node="out0"]').dispatch('pointerdown', e.position(1100, 140));
+  await e.get('canvas').dispatch('pointermove', e.position(900, 280)); await e.get('canvas').dispatch('pointerup');
+  assert.deepEqual([at('out0').x, at('out0').y], [880, 260]);
+  await e.key('ArrowUp'); assert.equal(at('out0').y, 240);
+  await e.key('Delete'); assert.ok(at('out0'), 'terminals cannot be deleted');
+  await e.query('[data-node="in0"]').dispatch('pointerdown', e.position(60, 140));
+  await e.get('canvas').dispatch('pointermove', e.position(160, 400)); await e.get('canvas').dispatch('pointerup');
+  assert.deepEqual([at('in0').x, at('in0').y], [140, 380]);
+  await e.wire('in0', 'out0'); await e.get('check').click();
+  assert.equal(e.win.quantumFoundry.getStatus().passed, true);
+  await e.modalAction(0); await e.get('undo').click(); await e.get('undo').click();
+  assert.deepEqual([at('in0').x, at('in0').y], [40, 120]);
+});
+
+test('other fixed experiment parts stay in place', async () => {
+  const project = { format: 'quantum-foundry-project', version: 3, current: 'phase', lastView: 'map', modules: [], progress: { link: true, invert: true, superposition: true } };
+  const e = createEnvironment({ saved: new Map([['quantum-foundry-offline-v3', JSON.stringify(project)]]) });
+  await e.open('phase');
+  const before = { ...e.state().graph.nodes.find(n => n.id === 'h-before') };
+  await e.query('[data-node="h-before"]').dispatch('pointerdown', e.position(before.x + 20, before.y + 20));
+  await e.get('canvas').dispatch('pointermove', e.position(before.x + 200, before.y + 200)); await e.get('canvas').dispatch('pointerup');
+  await e.key('ArrowDown');
+  const after = e.state().graph.nodes.find(n => n.id === 'h-before'); assert.deepEqual([after.x, after.y], [before.x, before.y]);
+});
