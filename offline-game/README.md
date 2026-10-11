@@ -119,6 +119,16 @@ Finished jobs show the IonQ samples next to the ideal prediction for every input
 
 **Qiskit export.** **Menu ≡ → Export to Qiskit** downloads Python beginning with `#!/usr/bin/env python3`. It prepares the selected input, expands saved blocks and the selected oracle, prints the ideal state probabilities, and adds measurements. **Export OpenQASM** writes the same circuit as OpenQASM 2.0.
 
+## Qollab build
+
+`node source/build-qollab.cjs` writes `qollab/`, a Qollab **JS / Qiskit project** (15 files, all under Qollab's 2 MB limit). Upload that folder or its zip at qollab.xyz → New Project → *Upload your own files*. On Qollab:
+
+- Qiskit runs inside the page (Pyodide). `foundry/` holds the same `quantum.py` and `circuit.py` as `backend/`, plus `bridge.py`, which `main.js` calls.
+- "Run on …" uses the backend chosen in Qollab's **Select QPU** dialog. IonQ accepts one job per Run, so several inputs are packed side by side into one circuit and split back apart.
+- Nothing persists between Runs. Backups and exports are also printed to the console.
+- The MP3s exceed Qollab's file limit, so they stream from this repository via jsDelivr; the synthesized scores are the fallback.
+- `qollab/README.md` becomes the project page.
+
 ## Optional development
 
 Source and tests are included. With Node 18+ installed:

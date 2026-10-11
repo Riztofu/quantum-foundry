@@ -120,3 +120,14 @@ test('a page opened as a file uses free Qiskit on 127.0.0.1:8000 but explains ho
   assert.match(e.get('modal-root').textContent, /opened as a file/);
   assert.equal(service.calls.some(c => c.path.startsWith('/api/ionq')), false);
 });
+
+test('an attached host (the Qollab build) replaces the HTTP service for grading and runs', async () => {
+  const service = fakeService(), calls = [];
+  const host = { request: async (path, body) => { calls.push(path); const r = await service.fetch(path, body ? { method: 'POST', body: JSON.stringify(body) } : {}); return r.json(); } };
+  const e = createEnvironment(); // no fetch, no location: like Qollab's sandboxed frame
+  assert.match(e.get('engine-tag').textContent, /LOCAL SIMULATION/);
+  await e.win.quantumFoundry.attachHost(host); await settle();
+  assert.match(e.get('engine-tag').textContent, /QISKIT 2\.5\.2 · LIVE/); assert.equal(e.win.quantumFoundry.getEngine().ionq, true);
+  await e.open('link'); await e.wire('in0', 'out0'); await e.get('check').click(); await settle();
+  assert.ok(calls.includes('/api/verify')); assert.equal(e.win.quantumFoundry.getProject().progress.link, true);
+});

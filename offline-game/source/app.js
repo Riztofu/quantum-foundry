@@ -53,7 +53,7 @@
     return p;
   }
   let project = fresh(), storageOK = true, restoreWarning = '';
-  try { const saved = localStorage.getItem(KEY); if (saved) project = validateProject(JSON.parse(saved)); localStorage.setItem(KEY, JSON.stringify(project)); } catch (error) { storageOK = false; restoreWarning = 'Local saving is unavailable or a previous save could not be read. Use Backup to keep your work.'; }
+  try { const saved = localStorage.getItem(KEY); if (saved) project = validateProject(JSON.parse(saved)); localStorage.setItem(KEY, JSON.stringify(project)); } catch (error) { storageOK = false; restoreWarning = 'Browser saving is unavailable here (for example inside Qollab) or a previous save could not be read. Use Menu → Download backup to keep your work.'; }
   let level = levelFor(project.current, project), graph = C.clone(project.circuits[level.id] || C.starter(level.id, level.qubits)), camera = C.clone(project.cameras[level.id] || { x: 0, y: 0, zoom: 1 });
   let selected = null, placement = null, pendingWire = null, mode = 'select', pointer = { x: 500, y: 160 }, drag = null, spaceDown = false, undo = [], redo = [], activeTab = 'tests', caseIndex = project.inputs[level.id] || 0, stepIndex = 0, result = null, counts = null, compiled = null, trace = [], graphError = null, interval = null, toastTimer = null, modalFocus = null, uid = Date.now();
   let lessonPage = 0, exampleStep = 0, exampleInput = 0, attempted = false, countsEngine = 'random sampling';
@@ -440,20 +440,25 @@
   const servedOverHttp = /^https?:$/.test(window.location?.protocol || '');
   const SERVICE = servedOverHttp ? '' : 'http://127.0.0.1:8000';
   const service = { kind: 'local', qiskit: null, ionq: null, checking: false };
+  // A host (the Qollab build's main.js) answers the same API inside the page: Qiskit runs in
+  // Pyodide there, and the backend chosen in Qollab's Select QPU dialog replaces the HTTP service.
+  let host = null;
   const circuitKey = () => level.id + '|' + level.qubits + '|' + JSON.stringify(graph);
   async function api(path, body, method) {
+    if (host) return host.request(path, body, method);
     const options = body === undefined ? { method: method || 'GET', cache: 'no-store' } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
     const response = await fetch(SERVICE + path, options);
     let data = null; try { data = await response.json(); } catch { data = null; }
     if (!response.ok) throw Object.assign(Error(typeof data?.detail === 'string' ? data.detail : 'The quantum service answered ' + response.status + '.'), { status: response.status });
     return data;
   }
-  const ionqReady = () => servedOverHttp && !!service.ionq?.configured && service.ionq.targets?.length > 0;
+  const ionqReady = () => (host || servedOverHttp) && !!service.ionq?.configured && service.ionq.targets?.length > 0;
   function renderEngine() {
     const tag = $('engine-tag'), live = service.kind === 'qiskit';
     tag.classList.toggle('live', live);
     tag.innerHTML = `<span class="status-dot"></span> ${live ? 'QISKIT ' + esc(service.qiskit) + ' · LIVE' : 'LOCAL SIMULATION'}`;
-    tag.title = live ? 'Check circuit is confirmed by Qiskit ' + service.qiskit + ' (Statevector + Operator.equiv) and Sample output is measured by Qiskit. Click to re-check the connection.'
+    tag.title = live && host ? 'Check circuit is confirmed by Qiskit ' + service.qiskit + ' running in this page on Qollab (Statevector + Operator.equiv); Sample output is measured by Qiskit.'
+      : live ? 'Check circuit is confirmed by Qiskit ' + service.qiskit + ' (Statevector + Operator.equiv) and Sample output is measured by Qiskit. Click to re-check the connection.'
       : 'Exact local statevector simulation. Click to look for the Quantum Foundry service (python3 backend/main.py).';
     $('qiskit-connect').innerHTML = (live ? 'Qiskit ' + esc(service.qiskit) + ' connected' : 'Connect Qiskit service') + ' <span>⇄</span>';
     renderIonQStatus();
@@ -461,11 +466,15 @@
   function renderIonQStatus() {
     const ready = ionqReady(), qpu = service.ionq?.targets?.some(t => t.paid);
     $('qpu-run').disabled = false;
+    const target = host ? service.ionq?.targets?.[0] : null;
+    $('ionq-open').textContent = 'Run on ' + (target ? target.short || target.label : 'IonQ') + ' ↗'; $('ionq-open').title = target ? 'Run on ' + target.label + ' (chosen in Qollab’s Select QPU dialog)' : 'Run this circuit on an IonQ simulator or quantum computer';
+    $('qpu-run').innerHTML = esc('Run on ' + (target ? target.label : 'IonQ')) + '… <span>' + (host ? 'QOLLAB' : 'SIM / QPU') + '</span>';
     $('qpu-status').textContent = ready ? `IonQ ready · ${service.ionq.targets.length} target${service.ionq.targets.length === 1 ? '' : 's'}${qpu ? ' incl. paid QPU' : ' (cloud simulators)'}${ionqJob && !ionqFinal(ionqJob.status) ? ' · job ' + ionqStatusName(ionqJob.status).toLowerCase() : ''}`
       : service.kind !== 'qiskit' ? 'Start the Quantum Foundry service to use IonQ.' : !servedOverHttp ? 'Open the game from http://127.0.0.1:8000 to use IonQ.' : 'Add an IonQ API key to the service to enable runs.';
   }
   async function probeEngine(quiet) {
-    if (typeof fetch !== 'function') { if (!quiet) notify('This browser cannot reach the Quantum Foundry service; the local simulator stays active.'); return; }
+    if (!host && window.FoundryHostPending) return; // the Qollab build attaches its host right after loading
+    if (!host && typeof fetch !== 'function') { if (!quiet) notify('This browser cannot reach the Quantum Foundry service; the local simulator stays active.'); return; }
     if (service.checking) return;
     service.checking = true;
     try {
@@ -499,7 +508,7 @@
   }
   function run() {
     pause(); if (!readyToRun()) return; stepIndex = compiled.count;
-    if (service.kind === 'qiskit' && typeof fetch === 'function') { runOnQiskit(); return; }
+    if (service.kind === 'qiskit' && (host || typeof fetch === 'function')) { runOnQiskit(); return; }
     counts = C.sample(trace[trace.length - 1], project.settings.shots); countsEngine = 'random sampling';
     revealDock('measurements'); render(); notify('Sampled ' + project.settings.shots + ' fresh preparations of the final circuit.');
   }
@@ -507,7 +516,7 @@
     pause(); pendingWire = null; placement = null;
     try {
       result = C.grade(level.id, graph, modules()); qiskitVerdict = null; revealDock('tests'); compute(); stepIndex = compiled.count;
-      if (service.kind === 'qiskit' && typeof fetch === 'function') { confirmOnQiskit(result); return; }
+      if (service.kind === 'qiskit' && (host || typeof fetch === 'function')) { confirmOnQiskit(result); return; }
       render(); finishCheck();
     } catch (e) { attempted = true; notify(e.message); graphError = { message: e.message, nodeId: e.nodeId }; renderCanvas(); }
   }
@@ -538,7 +547,7 @@
   async function exportQasm() {
     if (!readyToRun()) return;
     const name = 'quantum_foundry_' + level.id + '.qasm', c = source();
-    if (service.kind === 'qiskit' && typeof fetch === 'function') {
+    if (service.kind === 'qiskit' && (host || typeof fetch === 'function')) {
       try {
         const [circuit] = C.serviceCircuits(level, graph, modules(), [caseIndex]);
         const data = await api('/api/qasm', { qubits: circuit.qubits, initial: circuit.initial, operations: circuit.operations });
@@ -557,8 +566,10 @@
   const IONQ_KEY = 'quantum-foundry-ionq-jobs';
   const ionqFinal = s => ['done', 'cancelled', 'failed'].includes(s);
   const ionqStatusName = s => ({ submitted: 'Submitted', queued: 'Waiting in the IonQ queue', validating: 'Validating', running: 'Running', done: 'Complete', cancelled: 'Cancelled', failed: 'Failed' }[s] || 'Unknown');
-  function ionqContexts() { try { const all = JSON.parse(localStorage.getItem(IONQ_KEY) || '{}'); return all && typeof all === 'object' ? all : {}; } catch { return {}; } }
+  const ionqMemory = {}; // also keeps comparisons where browser storage is unavailable (Qollab)
+  function ionqContexts() { try { const all = JSON.parse(localStorage.getItem(IONQ_KEY) || '{}'); return { ...(all && typeof all === 'object' ? all : {}), ...ionqMemory }; } catch { return { ...ionqMemory }; } }
   function rememberIonqContext(id, context) {
+    ionqMemory[id] = context;
     try { const all = { ...ionqContexts(), [id]: context }, keep = Object.keys(all).sort((a, b) => (all[b].created || 0) - (all[a].created || 0)).slice(0, 30); localStorage.setItem(IONQ_KEY, JSON.stringify(Object.fromEntries(keep.map(k => [k, all[k]])))); } catch { /* history is a convenience */ }
   }
   function ionqSetup() {
@@ -571,12 +582,12 @@
   function ionqPanel() {
     if (!ionqReady()) { ionqSetup(); return; }
     if (!readyToRun()) return;
-    const cases = C.cases(level), all = cases.length > 1 && cases.length <= 16, targets = service.ionq.targets;
+    const cases = C.cases(level), maxQubits = service.ionq.max_qubits || Infinity, all = cases.length > 1 && cases.length <= 16 && cases.length * level.qubits <= maxQubits, targets = service.ionq.targets;
     const chosen = targets.some(t => t.id === project.settings.ionqTarget) ? project.settings.ionqTarget : service.ionq.default || targets[0].id;
-    modal('Run on IonQ', `<p>Prepare the selected input${all ? '(s)' : ''}, run <b>${esc(level.title)}</b> on IonQ, and compare the measured samples with the ideal prediction. These runs never change your grade — Check circuit is exact.</p>
+    modal('Run on IonQ', `<p>Prepare the selected input${all ? '(s)' : ''}, run <b>${esc(level.title)}</b> on IonQ, and compare the measured samples with the ideal prediction. These runs never change your grade — Check circuit is exact.</p>${service.ionq.note ? `<p class="lesson-note">${esc(service.ionq.note)}</p>` : ''}
       <div class="ionq-form">
         <label for="ionq-target">Target<select id="ionq-target">${targets.map(t => `<option value="${esc(t.id)}"${t.id === chosen ? ' selected' : ''}>${esc(t.label)}${t.paid ? ' · paid' : ' · free'}</option>`).join('')}</select></label>
-        <label for="ionq-scope">Inputs<select id="ionq-scope"><option value="one">Selected: ${esc(source().input)}</option>${all ? `<option value="all">All ${cases.length} test inputs (one job)</option>` : ''}</select></label>
+        <label for="ionq-scope">Inputs<select id="ionq-scope"><option value="one">Selected: ${esc(source().input)}</option>${all ? `<option value="all">All ${cases.length} test inputs (one job${host ? ', side by side in one circuit' : ''})</option>` : ''}</select></label>
         <label for="ionq-shots">Shots<select id="ionq-shots">${[128, 512, 1024].map(n => `<option value="${n}"${n === project.settings.shots ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
         <label class="ionq-check" id="ionq-mitigation-row"><input type="checkbox" id="ionq-mitigation"> Error mitigation (debiasing)</label>
       </div>
@@ -606,6 +617,7 @@
     try {
       const estimate = await api('/api/ionq/estimate', ionqBody(selection, C.serviceCircuits(level, graph, modules(), selection.indices)));
       if (token !== ionqEstimateToken || !$('ionq-estimate')) return;
+      if (typeof estimate.cost !== 'number') { $('ionq-estimate').textContent = (estimate.note || 'No estimate available.') + ' · ' + runs; return; }
       const minutes = s => s === null || s === undefined ? 'unknown' : s < 90 ? Math.round(s) + ' s' : s < 5400 ? Math.round(s / 60) + ' min' : (s / 3600).toFixed(1) + ' h';
       $('ionq-estimate').innerHTML = `<b>Estimated cost: ${esc(estimate.cost.toFixed(2))} ${esc(estimate.cost_unit)}</b> · ${runs} · queue ≈ ${esc(minutes(estimate.queue_seconds))} · run ≈ ${esc(minutes(estimate.execution_seconds))}. IonQ's estimate; your bill may differ.`;
     } catch (error) {
@@ -724,7 +736,8 @@
     actions.push({ label: 'Close', primary: true, run: closeModal });
     modal(m.name + ' · inside the block', `<p>${esc(m.kind)} · ${m.qubits} qubits · ${m.gates.length} primitive gates · version ${m.version}. ${m.kind === 'BellPrep' ? 'Preparation contract assumes input |00⟩.' : 'The stored gate sequence preserves the original input/output mapping.'}</p>${schematic}<div class="gate-list">${m.gates.map((g, i) => `${i + 1}. ${g.type === 'CX' ? 'CNOT q' + g.control + ' → q' + g.target : g.type + ' q' + g.target}`).join('<br>') || 'Direct quantum connections (identity)'}</div>`, actions, true);
   }
-  function download(name, text, mime) { const url = URL.createObjectURL(new Blob([text], { type: mime })); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000); }
+  function download(name, text, mime) {
+    if (host) console.log('──── ' + name + ' (copy from here if the download is blocked) ────\n' + text); const url = URL.createObjectURL(new Blob([text], { type: mime })); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000); }
   function backup() { persist(); download('Quantum-Foundry-Backup.json', JSON.stringify(project, null, 2), 'application/json'); notify('Backup downloaded: circuits, progress, and saved components.'); }
   function exportPython() { if (!readyToRun()) return; download('quantum_foundry_' + level.id + '.py', C.qiskit(compiled, level.qubits, typeof source().initial === 'number' ? source().initial : source().basisInput || 0, source().message, level.id), 'text/x-python'); notify('Qiskit Python exported. Its shebang is included; install Qiskit separately to run it.'); }
   function hint() { const hints = L[level.id].hints, index = Math.min(project.hints[level.id] || 0, hints.length - 1); project.hints[level.id] = index + 1; persist(); modal('Hint ' + (index + 1) + ' / ' + hints.length, `<p>${esc(hints[index])}</p>`, [{ label: 'Back to circuit', primary: true, run: closeModal }]); }
@@ -912,7 +925,8 @@
     getEngine: () => ({ kind: service.kind, qiskit: service.qiskit, service: SERVICE || 'same origin', ionq: ionqReady() }),
     getStatus: () => ({ level: level.id, step: stepIndex, error: graphError?.message || null, storage: storageOK, tested: !!result, passed: !!result?.passed }),
     exportQiskit: () => { if (!compiled) throw Error(graphError?.message || 'Incomplete circuit.'); return C.qiskit(compiled, level.qubits, typeof source().initial === 'number' ? source().initial : source().basisInput || 0, source().message, level.id); },
-    validateProject: raw => C.clone(validateProject(raw))
+    validateProject: raw => C.clone(validateProject(raw)),
+    attachHost: next => { host = next; Object.assign(service, { kind: 'local', qiskit: null, ionq: null, checking: false }); return probeEngine(true); }
   });
   document.documentElement.style.setProperty('--dock', project.settings.dock + 'px');
   compute(); render(); renderMap(); renderAudio(); renderEngine(); probeEngine(true); $('campaign').hidden = project.lastView === 'workbench';

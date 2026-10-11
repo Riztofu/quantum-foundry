@@ -25,7 +25,9 @@
   ]);
   const tracks = {};
   for (const id of Object.keys(scores)) tracks[id] = { title: scores[id].title, kind: 'score' };
-  for (const [id, title, file, isrc] of playlist) tracks[id] = { title, kind: 'file', file, isrc, credit: CREDIT };
+  // Builds that cannot ship the MP3s beside the page (Qollab: 2 MB per file) set FoundryMusicBase to a CDN folder.
+  const base = typeof root.FoundryMusicBase === 'string' ? root.FoundryMusicBase.replace(/\/?$/, '/') : '';
+  for (const [id, title, file, isrc] of playlist) tracks[id] = { title, kind: 'file', file: base ? base + file.replace(/^assets\/music\//, '') : file, isrc, credit: CREDIT };
   Object.freeze(tracks);
   const playlistIds = playlist.map(([id]) => id);
 
