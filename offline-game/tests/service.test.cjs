@@ -203,3 +203,35 @@ test('on Qollab, Import save accepts a pasted save', async () => {
   assert.match(e.get('dialog-title').textContent, /Import project backup/); await e.modalAction(1);
   assert.equal(e.win.quantumFoundry.getProject().progress.link, true);
 });
+
+test('IonQ runs travel in the save file and reopen in a later session without the service', async () => {
+  const service = fakeService(), e = served(service); await settle();
+  await e.get('demo').click(); await e.begin();
+  await e.get('ionq-open').click(); e.get('ionq-scope').value = 'all'; await e.modalAction(2); await settle();
+  const job = service.jobs.get('job-1'); Object.assign(job, { status: 'done', counts: [{ '00': 250, '11': 262 }, { '01': 256, '10': 256 }, { '00': 256, '11': 256 }, { '01': 250, '10': 262 }] });
+  await e.modalAction(1); await settle(); // Refresh → done, recorded
+  await e.key('Escape'); await e.get('map-button').click(); await e.get('map-save').click();
+  const save = JSON.parse(await e.doc.downloads.at(-1).blob.text());
+  assert.equal(save.ionqRuns.length, 1); const run = save.ionqRuns[0];
+  assert.equal(run.status, 'done'); assert.equal(run.counts.length, 4); assert.equal(run.ideal.length, 4); assert.equal(run.levelTitle, 'Sandbox');
+
+  const later = createEnvironment({ saved: new Map([['quantum-foundry-offline-v3', JSON.stringify(save)]]) }); // no service at all
+  await later.get('qpu-run').click(); assert.match(later.get('dialog-title').textContent, /Run on IonQ/);
+  await later.modalAction(1); // Previous runs
+  assert.match(later.get('dialog-title').textContent, /Previous IonQ runs/); assert.match(later.get('modal-root').textContent, /Complete/);
+  await later.query('[data-ionq-job="job-1"]').click(); await settle();
+  assert.match(later.get('dialog-title').textContent, /IonQ job/);
+  assert.match(later.get('modal-root').textContent, /distribution fidelity/); assert.match(later.get('modal-root').textContent, /50% →/);
+});
+
+test('saves from earlier versions (no ionqRuns) still load, and damaged run entries are skipped, not fatal', async () => {
+  const source = createEnvironment(); await source.open('link'); await source.wire('in0', 'out0'); await source.get('check').click();
+  const old = JSON.parse(JSON.stringify(source.win.quantumFoundry.getProject())); delete old.ionqRuns;
+  const loaded = createEnvironment().win.quantumFoundry.validateProject(old);
+  assert.equal(loaded.progress.link, true); assert.deepEqual(JSON.parse(JSON.stringify(loaded.ionqRuns)), []);
+  const good = { job_id: 'qollab-lz1-1', name: 'Quantum Foundry · Sandbox', target: 'qollab', target_label: 'IonQ simulator', paid: false, labels: ['|00⟩'], qubits: 2, shots: 512, created: 1791700000, status: 'done', counts: [{ '00': 260, '11': 252 }], ideal: [[0.5, 0, 0, 0.5]] };
+  const mixed = { ...old, ionqRuns: [good, { job_id: 'bad id!', labels: [] }, { ...good, job_id: 'x2', counts: [{ '0': 5 }] }, 'nonsense', { ...good, job_id: 'x3', status: 'running', counts: undefined, ideal: undefined }] };
+  const runs = JSON.parse(JSON.stringify(createEnvironment().win.quantumFoundry.validateProject(mixed).ionqRuns));
+  assert.deepEqual(runs.map(r => r.job_id), ['qollab-lz1-1', 'x3']);
+  assert.deepEqual(runs[0].counts, [{ '00': 260, '11': 252 }]);
+});

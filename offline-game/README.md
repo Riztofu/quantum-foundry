@@ -72,7 +72,7 @@ Chapter I branches after superposition. Courier needs phase, decoding, and saved
 
 Work saves automatically in the same browser when local storage is available. Local-file storage depends on browser settings, location, and private browsing.
 
-**Menu ≡ → Download backup** creates a portable JSON copy of mission circuits, progress, all Sandbox sizes, component versions, best scores, selected inputs, cameras, layout, and music preferences. **Import backup** restores it on another computer. Backups from the earlier version-3 prototype remain compatible. When local storage is unavailable, the game remains playable and asks you to keep a manual backup.
+**💾 Save** on the map (or **Menu ≡ → Download backup**) creates a portable JSON copy of mission circuits, progress, all Sandbox sizes, component versions, best scores, selected inputs, cameras, layout, music preferences, and your last 30 IonQ runs with their results (reopen them under **Run on IonQ → Previous runs**). Saves from earlier versions, which have no run history, still import. **Import backup** restores it on another computer. Backups from the earlier version-3 prototype remain compatible. When local storage is unavailable, the game remains playable and asks you to keep a manual backup.
 
 Send your friend the ZIP or full extracted folder so `assets/music/` stays beside `index.html`. The game itself still works if the MP3 folder is missing, using the two original scores. Keep a separate backup JSON before replacing or moving an older game file.
 

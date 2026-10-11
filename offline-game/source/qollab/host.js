@@ -30,7 +30,8 @@ export function createHost(bridge, backend) {
     const d = await describe();
     if (d.ionq && used) throw fail('Qollab allows one IonQ job per Run, and this Run already sent one. Press Stop, then Run again to send another.', 429);
     used = true;
-    const id = 'qollab-' + (++sequence), record = {
+    // Unique across Runs, so saved runs from earlier sessions are never overwritten.
+    const id = 'qollab-' + Date.now().toString(36) + '-' + (++sequence), record = {
       job_id: id, status: 'running', target: 'qollab', target_label: d.label, paid: d.paid, name: body.name,
       labels: body.circuits.map(c => c.label), qubits: body.circuits[0].qubits, shots: body.shots,
       error_mitigation: !!(d.paid && body.error_mitigation), created: Date.now() / 1000

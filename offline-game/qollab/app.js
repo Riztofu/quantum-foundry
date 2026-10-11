@@ -3,8 +3,28 @@
   const C = window.FoundryCore, L = window.FoundryLessons, $ = id => document.getElementById(id), esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const KEY = 'quantum-foundry-offline-v3';
   const totalMissions = C.levels.filter(l => l.number).length;
-  const fresh = () => ({ format: 'quantum-foundry-project', version: 3, current: 'link', lastView: 'map', progress: {}, modules: [], circuits: {}, sandboxes: {}, cameras: {}, inputs: {}, hints: {}, briefings: {}, best: {}, seenPrimer: false, settings: { shots: 512, dock: 172, dockCollapsed: false, partsCollapsed: false, layout: 1, sandboxQubits: 2, music: true, volume: .22, track: 'km-monkeys', chapter: 0 } });
+  const fresh = () => ({ format: 'quantum-foundry-project', version: 3, current: 'link', lastView: 'map', progress: {}, modules: [], circuits: {}, sandboxes: {}, cameras: {}, inputs: {}, hints: {}, briefings: {}, best: {}, ionqRuns: [], seenPrimer: false, settings: { shots: 512, dock: 172, dockCollapsed: false, partsCollapsed: false, layout: 1, sandboxQubits: 2, music: true, volume: .22, track: 'km-monkeys', chapter: 0 } });
   const levelFor = (id, p) => id === 'sandbox' ? { ...C.getLevel(id), qubits: p.settings.sandboxQubits } : C.getLevel(id);
+  // ── Saved IonQ runs ─ optional in saves; older saves simply have none. Malformed entries are dropped,
+  // never the whole save, and older game versions ignore the field when importing a newer save.
+  const MAX_SAVED_RUNS = 30, RUN_STATUSES = ['submitted', 'queued', 'validating', 'running', 'done', 'cancelled', 'failed'];
+  function cleanIonqRun(r) {
+    const text = (v, max) => typeof v === 'string' && v.length <= max ? v : null, finite = v => typeof v === 'number' && Number.isFinite(v);
+    if (!r || typeof r !== 'object' || !text(r.job_id, 128) || !/^[A-Za-z0-9._:-]+$/.test(r.job_id)) return null;
+    const qubits = r.qubits, labels = r.labels;
+    if (!Number.isInteger(qubits) || qubits < 1 || qubits > C.LIMITS.qubits || !Array.isArray(labels) || !labels.length || labels.length > 16 || !labels.every(l => text(l, 80) !== null)) return null;
+    if (!Number.isInteger(r.shots) || r.shots < 1 || r.shots > 100000 || !RUN_STATUSES.includes(r.status) || !finite(r.created)) return null;
+    const run = { job_id: r.job_id, name: text(r.name, 120) || 'IonQ job', target: text(r.target, 80) || 'ionq', target_label: text(r.target_label, 80) || 'IonQ', paid: r.paid === true, labels: [...labels], qubits, shots: r.shots, error_mitigation: r.error_mitigation === true, created: r.created, status: r.status };
+    const bitsKey = new RegExp('^[01]{' + qubits + '}$');
+    if (Array.isArray(r.counts) && r.counts.length === labels.length && r.counts.every(t => t && typeof t === 'object' && Object.entries(t).every(([k, v]) => bitsKey.test(k) && Number.isInteger(v) && v >= 0 && v <= 1e7))) run.counts = r.counts.map(t => ({ ...t }));
+    else if (run.status === 'done') return null;
+    if (Array.isArray(r.ideal) && r.ideal.length === labels.length && r.ideal.every(a => Array.isArray(a) && a.length === 2 ** qubits && a.every(v => finite(v) && v >= 0 && v <= 1))) run.ideal = r.ideal.map(a => [...a]);
+    if (text(r.error, 300)) run.error = r.error;
+    if (finite(r.execution_seconds) && r.execution_seconds >= 0) run.execution_seconds = r.execution_seconds;
+    if (text(r.levelTitle, 80)) run.levelTitle = r.levelTitle;
+    if (C.getLevel(r.levelId)) run.levelId = r.levelId;
+    return run;
+  }
   function validateProject(raw) {
     if (!raw || raw.format !== 'quantum-foundry-project' || raw.version !== 3 || !Array.isArray(raw.modules) || raw.modules.length > C.LIMITS.modules) throw Error('Choose a Quantum Foundry project backup (version 3).');
     const p = fresh(), ids = new Set();
@@ -49,6 +69,7 @@
     if (Number.isFinite(raw.settings?.volume)) p.settings.volume = Math.max(0, Math.min(.6, raw.settings.volume));
     if (window.FoundryAudio.tracks[raw.settings?.track]) p.settings.track = raw.settings.track;
     p.settings.chapter = raw.settings?.chapter === 1 ? 1 : 0;
+    p.ionqRuns = Array.isArray(raw.ionqRuns) ? raw.ionqRuns.slice(0, MAX_SAVED_RUNS).map(cleanIonqRun).filter(Boolean) : [];
     if (typeof raw.settings?.ionqTarget === 'string' && /^[a-z0-9.@_-]{1,60}$/.test(raw.settings.ionqTarget)) p.settings.ionqTarget = raw.settings.ionqTarget;
     return p;
   }
@@ -605,7 +626,18 @@
   const ionqFinal = s => ['done', 'cancelled', 'failed'].includes(s);
   const ionqStatusName = s => ({ submitted: 'Submitted', queued: 'Waiting in the IonQ queue', validating: 'Validating', running: 'Running', done: 'Complete', cancelled: 'Cancelled', failed: 'Failed' }[s] || 'Unknown');
   const ionqMemory = {}; // also keeps comparisons where browser storage is unavailable (Qollab)
-  function ionqContexts() { try { const all = JSON.parse(localStorage.getItem(IONQ_KEY) || '{}'); return { ...(all && typeof all === 'object' ? all : {}), ...ionqMemory }; } catch { return { ...ionqMemory }; } }
+  function ionqContexts() {
+    const saved = Object.fromEntries((project.ionqRuns || []).filter(r => r.ideal).map(r => [r.job_id, { title: r.levelTitle, levelId: r.levelId, ideal: r.ideal, labels: r.labels, qubits: r.qubits }]));
+    try { const all = JSON.parse(localStorage.getItem(IONQ_KEY) || '{}'); return { ...saved, ...(all && typeof all === 'object' ? all : {}), ...ionqMemory }; } catch { return { ...saved, ...ionqMemory }; }
+  }
+  // Keep every IonQ run (with its counts and ideal prediction) in the project, so 💾 Save carries it.
+  function recordIonqRun(job) {
+    const context = ionqContexts()[job?.job_id] || {};
+    const run = cleanIonqRun({ ...job, levelTitle: context.title, levelId: context.levelId, ideal: context.ideal });
+    if (!run) return;
+    project.ionqRuns = [run, ...(project.ionqRuns || []).filter(r => r.job_id !== run.job_id)].slice(0, MAX_SAVED_RUNS);
+    persist();
+  }
   function rememberIonqContext(id, context) {
     ionqMemory[id] = context;
     try { const all = { ...ionqContexts(), [id]: context }, keep = Object.keys(all).sort((a, b) => (all[b].created || 0) - (all[a].created || 0)).slice(0, 30); localStorage.setItem(IONQ_KEY, JSON.stringify(Object.fromEntries(keep.map(k => [k, all[k]])))); } catch { /* history is a convenience */ }
@@ -615,7 +647,7 @@
       ? '<ol><li>In a terminal: <code>cd backend</code>, create the virtual environment, and <code>pip install -r requirements.txt</code>.</li><li><code>export IONQ_API_KEY="your key"</code> (add <code>IONQ_ENABLE_QPU=1</code> for paid hardware).</li><li><code>python main.py</code>, then open <b>http://127.0.0.1:8000</b>.</li></ol>'
       : '<p>The service is running but has no IonQ API key. Stop it, run <code>export IONQ_API_KEY="your key"</code>, and start <code>python main.py</code> again. Add <code>IONQ_ENABLE_QPU=1</code> to offer paid QPUs.</p>';
     modal('Run on IonQ', `<p>Quantum Foundry can send your circuit to IonQ: the free cloud simulator (ideal or with Aria / Forte noise models) or a real trapped-ion QPU. The API key stays inside the local service.</p>${steps}<p class="lesson-note">${!servedOverHttp && service.kind === 'qiskit' ? 'Qiskit is connected, but this page was opened as a file. IonQ runs need the page served by the service at http://127.0.0.1:8000.' : 'Everything else in the game works without IonQ.'}</p>`,
-      [{ label: 'Check again', run: async () => { await probeEngine(false); if (ionqReady()) ionqPanel(); } }, ...(ionqJob ? [{ label: 'Last job', run: () => showIonqJob(ionqJob) }] : []), { label: 'Close', primary: true, run: closeModal }], true);
+      [{ label: 'Check again', run: async () => { await probeEngine(false); if (ionqReady()) ionqPanel(); } }, ...(project.ionqRuns?.length ? [{ label: 'Previous runs', run: ionqHistory }] : []), { label: 'Close', primary: true, run: closeModal }], true);
   }
   function ionqRestart() {
     modal('Save, then start a new Run', `<p>Qollab sends <b>one IonQ job per Run</b>, and this Run has already used it. To send another:</p><ol class="experiment-steps"><li><b>Save your progress.</b> Qollab keeps nothing once the Run stops.</li><li>Press <b>Stop</b>, then <b>Run</b> again and choose an IonQ simulator in Select QPU.</li><li>On the map, press <b>Import save</b> and pick the file to continue where you left off.</li></ol><p id="restart-saved" class="tiny" aria-live="polite"></p>`, [
@@ -640,7 +672,7 @@
       <div id="ionq-estimate" class="ionq-estimate" aria-live="polite"></div>
       <label class="ionq-check ionq-paid" id="ionq-paid-row"><input type="checkbox" id="ionq-paid"> I understand this QPU run uses paid IonQ credits.</label>
       <p id="ionq-error" class="error"></p>`,
-      [{ label: 'Recent jobs', run: ionqHistory }, { label: 'Cancel', run: closeModal }, { label: 'Submit to IonQ', primary: true, run: submitIonq }], true);
+      [{ label: 'Previous runs', run: ionqHistory }, { label: 'Cancel', run: closeModal }, { label: 'Submit to IonQ', primary: true, run: submitIonq }], true);
     for (const id of ['ionq-target', 'ionq-scope', 'ionq-shots', 'ionq-mitigation']) $(id).onchange = updateIonqForm;
     updateIonqForm();
   }
@@ -681,7 +713,7 @@
       const job = await api('/api/ionq/jobs', { ...ionqBody(selection, circuits), confirm_paid: selection.target.paid });
       rememberIonqContext(job.job_id, { title: level.title, levelId: level.id, qubits: level.qubits, labels: circuits.map(c => c.label), ideal: circuits.map(c => c.ideal), created: Date.now() });
       if (service.ionq?.one_job_per_run) ionqRunUsed = true;
-      ionqJob = job; renderIonQStatus(); showIonqJob(job); watchIonq(job.job_id, selection.target.paid ? 15000 : 2500);
+      ionqJob = job; recordIonqRun(job); renderIonQStatus(); showIonqJob(job); watchIonq(job.job_id, selection.target.paid ? 15000 : 2500);
       notify('Submitted to ' + job.target_label + ' · job ' + job.job_id);
     } catch (error) {
       lostService(error);
@@ -700,9 +732,10 @@
     try {
       const job = await api('/api/ionq/jobs/' + encodeURIComponent(jobId));
       if (!ionqJob || ionqJob.job_id === jobId) ionqJob = job;
+      recordIonqRun(job);
       renderIonQStatus();
       if ($('ionq-job-view')?.dataset.job === jobId) showIonqJob(job);
-      else if (ionqFinal(job.status) && quiet) notify('IonQ job ' + ionqStatusName(job.status).toLowerCase() + ': ' + job.name + '. Open Menu → Run on IonQ → Recent jobs.');
+      else if (ionqFinal(job.status) && quiet) notify('IonQ job ' + ionqStatusName(job.status).toLowerCase() + ': ' + job.name + '. Open Run on IonQ → Previous runs.');
       return job;
     } catch (error) { lostService(error); if (!quiet) notify('Could not read the IonQ job: ' + error.message); return null; }
   }
@@ -727,19 +760,32 @@
       ${done ? `<div class="ionq-legend"><span class="ideal">Ideal prediction</span><span class="device">${job.paid ? 'QPU' : 'IonQ'} samples</span></div>${ionqComparison(job, context)}` : ''}
       <p class="lesson-note">${job.paid ? 'Real trapped-ion hardware: gates and readout are imperfect, so small wrong-outcome counts are expected.' : 'IonQ cloud simulator results.'} Samples cover the listed inputs only; Check circuit verifies the complete contract exactly.</p></div>`;
     modal('IonQ job', body, [
-      ...(final ? [] : [{ label: 'Cancel job', run: async () => { try { ionqJob = await api('/api/ionq/jobs/' + encodeURIComponent(job.job_id) + '/cancel', {}); showIonqJob(ionqJob); renderIonQStatus(); } catch (error) { notify('Could not cancel: ' + error.message); } } }, { label: 'Refresh', run: () => refreshIonq(job.job_id) }]),
-      { label: 'Recent jobs', run: ionqHistory },
+      ...(final ? [] : [{ label: 'Cancel job', run: async () => { try { ionqJob = await api('/api/ionq/jobs/' + encodeURIComponent(job.job_id) + '/cancel', {}); recordIonqRun(ionqJob); showIonqJob(ionqJob); renderIonQStatus(); } catch (error) { notify('Could not cancel: ' + error.message); } } }, { label: 'Refresh', run: () => refreshIonq(job.job_id) }]),
+      { label: 'Previous runs', run: ionqHistory },
       { label: 'Close', primary: true, run: closeModal }
     ], true);
   }
   async function ionqHistory() {
-    try {
-      const { jobs } = await api('/api/ionq/jobs');
-      modal('Recent IonQ jobs', jobs.length ? `<p>Jobs submitted by this service, newest first. Open one to check its status or compare its results.</p>${jobs.map(j => `<div class="workshop-item"><div><strong>${esc(j.name)}</strong><p>${esc(j.target_label)} · ${j.labels.length} circuit${j.labels.length === 1 ? '' : 's'} · ${new Date(j.created * 1000).toLocaleString()}</p></div><button class="secondary" data-ionq-job="${esc(j.job_id)}">Open →</button></div>`).join('')}` : '<p>No IonQ jobs yet.</p>',
-        [...(ionqReady() ? [{ label: 'New run', run: ionqPanel }] : []), { label: 'Close', primary: true, run: closeModal }], true);
-    } catch (error) { lostService(error); notify('Could not list IonQ jobs: ' + error.message); }
+    let live = [];
+    if (service.kind === 'qiskit' && (host || typeof fetch === 'function')) { try { live = (await api('/api/ionq/jobs')).jobs || []; } catch (error) { lostService(error); } }
+    const saved = new Map((project.ionqRuns || []).map(r => [r.job_id, r]));
+    const runs = [...new Map([...live.map(j => [j.job_id, { ...saved.get(j.job_id), ...j }]), ...[...saved.values()].filter(r => !live.some(j => j.job_id === r.job_id)).map(r => [r.job_id, r])]).values()].sort((a, b) => b.created - a.created);
+    modal('Previous IonQ runs', runs.length ? `<p>Newest first. Runs are kept in your project, so <b>💾 Save</b> carries them to your next session. Open one to see its results.</p>${runs.map(r => `<div class="workshop-item"><div><strong>${esc(r.name)}</strong><p>${esc(r.target_label)} · ${r.labels.length} circuit${r.labels.length === 1 ? '' : 's'} · ${esc(ionqStatusName(r.status))} · ${new Date(r.created * 1000).toLocaleString()}</p></div><button class="secondary" data-ionq-job="${esc(r.job_id)}">Open →</button></div>`).join('')}` : '<p>No IonQ runs yet.</p>',
+      [...(ionqReady() ? [{ label: 'New run', run: ionqPanel }] : []), { label: 'Close', primary: true, run: closeModal }], true);
   }
-  async function openIonqJob(jobId) { const job = await refreshIonq(jobId); if (job) { showIonqJob(job); if (!ionqFinal(job.status)) watchIonq(jobId, job.paid ? 15000 : 2500); } }
+  async function openIonqJob(jobId) {
+    const saved = (project.ionqRuns || []).find(r => r.job_id === jobId);
+    if (!saved || !ionqFinal(saved.status)) {
+      // Unfinished (or unsaved) runs: ask the service for fresh status. A run from an earlier Qollab Run is unknown there.
+      try {
+        if (service.kind !== 'qiskit') throw Error('offline');
+        const job = await api('/api/ionq/jobs/' + encodeURIComponent(jobId)); recordIonqRun(job); showIonqJob(job);
+        if (!ionqFinal(job.status)) watchIonq(jobId, job.paid ? 15000 : 2500);
+        return;
+      } catch (error) { if (!saved) { notify('Could not read that IonQ run: ' + error.message); return; } }
+    }
+    showIonqJob(saved);
+  }
   function nextAssignment() {
     closeModal(); const next = C.levels.find(l => l.number && !project.progress[l.id] && C.available(l, project.progress, modules()));
     if (next) openLevel(next.id); else openMap();

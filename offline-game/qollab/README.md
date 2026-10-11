@@ -13,7 +13,7 @@ This effort is supported by Qollab & IonQ.
 2. The game appears **above the console**. Press **🧭 Start from zero** for a two-minute primer, or open **01 · First Connection** on the map.
 3. Build the circuit, then press **Check circuit**. Qiskit grades it: the engine tag reads **QISKIT · LIVE**, and the Tests tab shows each case's state fidelity and the operator verdict.
 4. Press **Run on …** (under Sample output) to send the selected input, or every test input at once, to the backend you chose. The samples appear beside the ideal prediction.
-5. Press **Stop** when you're done. Nothing is saved between Runs, so press **💾 Save** on the map to keep progress, and **Import save** after your next Run. The save is also printed to the console in case the download is blocked.
+5. Press **Stop** when you're done. Nothing is saved between Runs, so press **💾 Save** on the map to keep progress, including your previous IonQ runs and their results, and **Import save** after your next Run. The save is also printed to the console in case the download is blocked.
 
 Use a recent Chrome, Edge, or Firefox 153+. Safari cannot run Qollab projects yet.
 
