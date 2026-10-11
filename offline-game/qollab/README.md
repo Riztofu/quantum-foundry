@@ -1,27 +1,26 @@
 # Quantum Foundry
 
-**Build a quantum machine, one verified circuit at a time.** Quantum Foundry is a circuit-construction game that teaches quantum computing from zero. You wire gates on a schematic, step through the joint quantum state, pass each mission's tests, and save your verified circuits as reusable parts. Then you build larger machines from them: superdense coding, qubit routing, GHZ entanglement, uncomputation, and the Deutsch and Bernstein–Vazirani algorithms.
+Quantum Foundry is a puzzle game about building quantum circuits. You drag gates onto a board, wire them up, and step through what happens to the qubits. Each mission gives you a goal. Once a circuit works, you can save it and use it as a part later. You start with a single wire and end up building superdense coding, GHZ states, and the Deutsch and Bernstein–Vazirani algorithms.
 
 This effort is supported by Qollab & IonQ.
 
 🎬 **Demo video (2–3 min):** _add your public video link here_
 💻 **Source:** https://github.com/Riztofu/quantum-foundry
 
-> **Track: Quantum Unlocked.** We teach two of the track's hard topics, **quantum networking** (superdense coding: two classical bits through one qubit, powered by entanglement) and **quantum algorithms** (Deutsch and Bernstein–Vazirani: one query instead of many). Players build every piece themselves, starting from "what is a bit?". Every answer is **verified by Qiskit** and can be **run on IonQ** to compare with real-device noise.
+We entered **Quantum Unlocked**. The game teaches superdense coding (sending two bits with one qubit) and two query algorithms, Deutsch and Bernstein–Vazirani. You don't need to know anything going in. The first page explains what a bit is.
 
-## ⏱ Judge's 60-second path
+## Quick tour
 
-1. Press **Run** → choose **IonQ Forte 1** (or **Built-in simulator**) in Select QPU. The game appears above the console.
-2. On the map, press **Bell demo** (a ready-made entangled pair) and close its short gate guide. Under Sample output, press **Run on … ↗**, choose **All 4 test inputs**, and **Submit**. All four inputs travel in **one job**, and the samples appear beside the ideal prediction.
-3. Back on the map, press **🧭 Start from zero** and drag the amplitude bar on page 2. That's how the game teaches from nothing.
-4. Open **01 · First Connection**, wire INPUT A → OUTPUT A, and press **Check circuit**. The Tests tab shows **Qiskit's** verdict: `Statevector` fidelity per case plus `Operator.equiv`.
+1. Press **Run** and pick **IonQ Forte 1** or the **Built-in simulator**. The game loads above the console.
+2. Click **Bell demo** on the map and close the gate guide. Click **Run on … ↗** under Sample output, pick **All 4 test inputs**, and submit. You'll see IonQ's results next to what an ideal machine would give.
+3. Go back to the map and open **Start from zero**. On page 2 you can drag a qubit's amplitude around.
+4. Open mission **01**, connect INPUT A to OUTPUT A, and click **Check circuit**. The Tests tab shows what Qiskit thinks of your circuit.
 
-## Why it's different
+## How it works
 
-- **You build the machine, then reuse it.** Verified circuits become parts: your BellPrep and BellDecode blocks power the Quantum Courier, and your Swap routes qubits in Chapter II.
-- **Honest grading.** Qiskit checks the full quantum state and the full operation (up to one global phase), so a reversed CNOT or a wrong relative sign can't pass by luck. Shot noise never fails a correct circuit.
-- **Real hardware, inside Qollab's rules.** IonQ allows one job per Run, so the game packs several test inputs side by side into one circuit and splits the results back apart. Before a second run, it offers to save your progress.
-- **Zero-background on-ramp.** A five-page interactive primer, new words defined before use, a 26-term dictionary, and hints in three steps, written for ages 8 and up.
+- Circuits you finish become parts you can reuse. The Bell pair you build in mission 6 is the same block you use to build the courier in mission 8.
+- Qiskit grades every circuit. It compares the whole quantum state and the whole operation, not just the measurement counts, so a circuit that only works by accident won't pass.
+- On Qollab, IonQ takes one job per Run. To test several inputs at once, the game puts them side by side in one bigger circuit and splits the results afterward. If you try a second job, it asks you to save first.
 
 ## How to run
 
